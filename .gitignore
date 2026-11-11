@@ -1,0 +1,32 @@
+# 依存・ビルド
+node_modules
+.next
+out
+*.tsbuildinfo
+next-env.d.ts
+
+# 秘密の値（絶対にGitHubに上げない）
+.env
+.env.local
+.env.*.local
+.env.production
+*.serviceAccount.json
+*serviceAccountKey*.json
+*-firebase-adminsdk-*.json
+
+# ログ・一時ファイル
+*.log
+firestore-debug.log
+ui-debug.log
+.DS_Store
+
+# テストの結果
+test-results
+playwright-report
+coverage
+
+# Vercel
+.vercel
+
+# Claude Code の個人の設定（共有しない）
+.claude/settings.local.json

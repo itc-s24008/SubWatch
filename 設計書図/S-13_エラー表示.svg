@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+  <title>同意の確認画面・エラー表示</title>
+  <rect x="0" y="0" width="390" height="844" rx="0" fill="#f5f7fb"/>
+
+  
+  
+  <text x="20" y="65" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="19" font-weight="800" fill="#2563eb" text-anchor="start">SubWatch</text>
+  <text x="20" y="95" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="20" font-weight="800" fill="#142033" text-anchor="start">同意の確認</text>
+  <circle cx="357" cy="86" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="357" y="89.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">1</text>
+  <rect x="22" y="120" width="346" height="500" rx="22" fill="#ffffff" stroke="#d9e1ea" stroke-width="1"/>
+  <text x="42" y="156" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="700" fill="#142033" text-anchor="start">利用規約・プライバシーポリシーが</text>
+  <text x="42" y="177" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="700" fill="#142033" text-anchor="start">更新されました。内容を確認して</text>
+  <text x="42" y="198" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="700" fill="#142033" text-anchor="start">同意してください</text>
+  <circle cx="357" cy="150" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="357" y="153.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">2</text>
+  <rect x="42" y="233" width="306" height="62" rx="10" fill="#f5f7fb" stroke="#d9e1ea" stroke-width="1"/>
+  <rect x="56" y="250" width="19" height="19" rx="4" fill="#ffffff" stroke="#9cacc2" stroke-width="1.5"/>
+  <text x="86" y="268" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="700" fill="#2563eb" text-anchor="start" text-decoration="underline">利用規約</text>
+  <text x="141" y="268" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="500" fill="#142033" text-anchor="start">に同意する</text>
+  <circle cx="342" cy="242" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="342" y="245.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">3</text>
+  <rect x="42" y="306" width="306" height="62" rx="10" fill="#f5f7fb" stroke="#d9e1ea" stroke-width="1"/>
+  <rect x="56" y="324" width="19" height="19" rx="4" fill="#ffffff" stroke="#9cacc2" stroke-width="1.5"/>
+  <text x="86" y="342" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="700" fill="#2563eb" text-anchor="start" text-decoration="underline">プライバシーポリシー</text>
+  <text x="212" y="342" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="500" fill="#142033" text-anchor="start">に同意する</text>
+  <circle cx="342" cy="315" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="342" y="318.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">4</text>
+  <rect x="56" y="250" width="19" height="19" rx="4" fill="#2563eb"/>
+  <path d="M 60 259 L 64 263 L 71 255" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="56" y="324" width="19" height="19" rx="4" fill="#2563eb"/>
+  <path d="M 60 333 L 64 337 L 71 329" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="42" y="382" width="306" height="58" rx="8" fill="#fff4f4" stroke="#f4c5c5" stroke-width="1"/>
+  <text x="53" y="406" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="700" fill="#C62828" text-anchor="start">登録できませんでした。</text>
+  <text x="53" y="425" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="400" fill="#C62828" text-anchor="start">もう一度お試しください</text>
+  <circle cx="342" cy="389" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="342" y="392.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">5</text>
+  <rect x="42" y="460" width="306" height="48" rx="9" fill="#2563eb"/>
+  <text x="195" y="490" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">同意して続ける</text>
+  <circle cx="357" cy="466" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="357" y="469.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">6</text>
+  <text x="195" y="546" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="13" font-weight="700" fill="#2563eb" text-anchor="middle">ログアウト</text>
+  <circle cx="270" cy="538" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+  <text x="270" y="541.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">7</text>
+</svg>

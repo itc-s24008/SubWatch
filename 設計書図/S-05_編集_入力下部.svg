@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<title>サブスク編集画面 - スクロール後</title>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#f5f7fb"/>
+<rect x="0" y="0" width="390" height="64" rx="0" fill="#ffffff"/>
+<text x="18" y="25" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="650" fill="#2563eb" text-anchor="start">‹ 戻る</text>
+<text x="18" y="52" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="18" font-weight="800" fill="#142033" text-anchor="start">サブスクを編集</text>
+<rect x="18" y="88" width="354" height="113" rx="10" fill="#ffffff" stroke="#d9e1ea" stroke-width="1"/>
+<text x="30" y="114" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="650" fill="#142033" text-anchor="start">このサブスクの通知を有効にする</text>
+<circle cx="360" cy="97" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+<text x="360" y="100.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">16</text>
+<rect x="315" y="126" width="40" height="22" rx="11" fill="#2563eb"/>
+<circle cx="344" cy="137" r="8" fill="#ffffff"/>
+<text x="30" y="161" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.5" font-weight="400" fill="#637083" text-anchor="start">通知は請求日・最終無料日の7日前と1日前。毎日、日本時間</text>
+<text x="30" y="177" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.5" font-weight="400" fill="#637083" text-anchor="start">9時台（遅れると11時台か18時台）に判定します。その日の判定より後に</text>
+<text x="20" y="252.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="400" fill="#637083" text-anchor="start">入力内容を確認して保存します。</text>
+<rect x="18" y="286.0" width="171" height="47" rx="10" fill="#ffffff" stroke="#d9e1ea" stroke-width="1"/>
+<text x="103.5" y="313.5" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="700" fill="#142033" text-anchor="middle">キャンセル</text>
+<circle cx="177" cy="290.0" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+<text x="177" y="293.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">17</text>
+<rect x="202" y="286.0" width="170" height="47" rx="10" fill="#2563eb"/>
+<text x="287.0" y="313.5" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">保存する</text>
+<circle cx="363" cy="289.0" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/>
+<text x="363" y="292.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">18</text>
+<text x="30" y="193" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.5" font-weight="400" fill="#637083" text-anchor="start">登録した分は、次の送信日から通知します</text></svg>

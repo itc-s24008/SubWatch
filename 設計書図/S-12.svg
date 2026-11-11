@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<title>プライバシーポリシー画面</title>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#f5f7fb"/>
+<rect x="0" y="0" width="390" height="64" rx="0" fill="#ffffff"/>
+<rect x="11" y="10" width="67" height="25" rx="8" fill="#eaf1ff"/>
+<text x="20" y="28" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="650" fill="#2563eb" text-anchor="start">‹ 戻る</text>
+<text x="20" y="50" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="18" font-weight="750" fill="#142033" text-anchor="start">プライバシーポリシー</text>
+<rect x="16" y="82" width="358" height="670" rx="14" fill="#ffffff" stroke="#d9e1ea" stroke-width="1"/>
+<text x="30" y="121" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="700" fill="#142033" text-anchor="start">SubWatch プライバシーポリシー</text>
+<rect x="30" y="126" width="330" height="36" rx="8" fill="#eaf1ff"/>
+<text x="38" y="140" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.6" font-weight="700" fill="#2563eb" text-anchor="start">この文書は卒業制作のために作成したもので、</text>
+<text x="38" y="154" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.6" font-weight="700" fill="#2563eb" text-anchor="start">法律の専門家による確認は受けていません</text>
+<text x="30" y="179" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">1. 運営者</text>
+<text x="30" y="193" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・運営者名：Eチーム</text>
+<text x="30" y="205.4" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・主な対象：10代〜30代</text>
+<text x="30" y="217.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・データの保存地域：日本（東京。Cloud Firestore）。ログイン情報は</text>
+<text x="30" y="230.20000000000002" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">　Firebase Authentication（Google）が管理します</text>
+<text x="30" y="245.60000000000002" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">2. 取得する情報</text>
+<text x="30" y="259.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・メールアドレス（ログインと本人確認のため）</text>
+<text x="30" y="272.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・利用者が登録したサブスク情報（サービス名、プラン名、料金、請求周期、</text>
+<text x="30" y="284.4" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">　請求日、カテゴリー、トライアル、URL、支払方法の表示名、メモ、通知の設定）</text>
+<text x="30" y="296.79999999999995" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・Push 購読情報（端末の宛先情報と、ブラウザの種類（User-Agent））</text>
+<text x="30" y="309.19999999999993" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・同意の記録（同意した日時と、利用規約・プライバシーポリシーの版）</text>
+<text x="30" y="321.5999999999999" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・通知履歴（いつ・どのサブスクについて通知したか）</text>
+<text x="30" y="336.9999999999999" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">3. 利用目的</text>
+<text x="30" y="350.9999999999999" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・ログインと本人確認</text>
+<text x="30" y="363.39999999999986" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・請求予定の表示と、請求日・最終無料日の事前通知</text>
+<text x="30" y="375.79999999999984" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・サービスの運営・不具合の調査・改善</text>
+<text x="30" y="391.1999999999998" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">4. 外部サービスへの提供</text>
+<text x="30" y="405.1999999999998" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・Firebase（Google）：認証（Authentication）とデータの保存（Firestore）</text>
+<text x="30" y="417.5999999999998" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・Vercel：アプリの配信とサーバー処理（毎日の通知判定を含む）</text>
+<text x="30" y="430.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・ブラウザの Push サービス（Google・Apple など）：Push 通知の配信</text>
+<text x="30" y="442.4" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">　通知は暗号化して送るため、Push サービスは通知の内容</text>
+<text x="30" y="454.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">　（サービス名・請求日・料金）を読めません</text>
+<text x="30" y="467.2" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・favicon.im：サービスアイコンの取得</text>
+<text x="30" y="479.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">サービスアイコンの取得のため、入力した公式サイトのドメイン、または</text>
+<text x="30" y="492.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">サービス名から辞書で特定したドメインを、入力中や表示のときに外部サービス</text>
+<text x="30" y="504.4" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">（favicon.im）に送信します。画像はお使いのブラウザが直接取得します。</text>
+<text x="30" y="519.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">5. 保存期間</text>
+<text x="30" y="533.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・登録したサブスク・アカウント情報：アカウントを削除するまで</text>
+<text x="30" y="546.2" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">・通知履歴：作成から90日で削除します</text>
+<text x="30" y="561.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">6. 削除</text>
+<text x="30" y="575.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">設定画面の［アカウントを削除］で、すべてのデータを削除します。</text>
+<text x="30" y="591.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">7. 施行日・変更</text>
+<text x="30" y="605.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">施行日：2026年12月1日。内容を変更したときは、同意の確認画面で</text>
+<text x="30" y="617.4" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">お知らせします。</text>
+<text x="30" y="632.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10.4" font-weight="800" fill="#142033" text-anchor="start">8. 問い合わせ先</text>
+<text x="30" y="646.8" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">問い合わせ先：Eチーム（卒業制作のため、個別の連絡窓口は設けていません）</text>
+<text x="30" y="659.2" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="8.9" font-weight="400" fill="#344256" text-anchor="start">版：2026-12-01</text>
+<circle cx="11" cy="10" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="11" y="13.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">1</text><circle cx="215" cy="43" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="215" y="46.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">2</text><circle cx="366" cy="90" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="366" y="93.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">3</text></svg>

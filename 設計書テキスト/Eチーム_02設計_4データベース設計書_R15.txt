@@ -1,0 +1,264 @@
+
+##### シート：1.概要
+A1=データベース設計書　版：R15（2026-11-07）
+A3=1. ER図 (Entity-Relationship Diagram)　※図（IE記法）は「1-2.ER図」シート。下の木は同じ内容を文字で書いたもの
+A4=SubWatchのFirestore（NoSQL）のコレクション構造を示す。物理的な外部キー制約はなく、データの所有権と整合性はサーバーAPI（Firebase Admin SDK）で守る。コレクションは5つで、すべて「初期版で作る」。画像のアップロード用のデータは持たない（アイコンは画面側でドメインから計算して表示する）。
+A7=users/{uid}  ユーザー（1人1件） → テーブルNo.1
+│  uid, email, subscriptionCount, accountNotificationEnabled, termsAcceptedAt, termsVersion, privacyVersion, consentHistory, createdAt, updatedAt
+│
+├─ [1対多] subscriptions/{subscriptionId}  サブスク（1人に最大200件） → テーブルNo.2
+│     subscriptionId, uid, serviceName, planName, price, billingCycle, firstBillingDate, nextBillingDate, billingDayMode, category, trialEnabled, trialEndDate, websiteUrl, cancelUrl, paymentMethod, memo, subscriptionNotificationEnabled, createdAt, updatedAt
+│
+├─ [1対多] notificationEvents/{notificationId}  通知イベント（送信日に1件ずつ作成） → テーブルNo.3
+│     notificationId, uid, subscriptionId, serviceNameAtNotification, notificationType, daysBefore, targetDate, title, body, priceAtNotification, viewedAt, webPushStatus, webPushSentAt, webPushLastErrorCode, webPushDeliveredIds, expireAt, createdAt, updatedAt
+│
+└─ [1対多] webPushSubscriptions/{webPushId}  Web Push購読（1端末1件、1人に最大10端末） → テーブルNo.4
+      webPushId, uid, endpoint, p256dh, auth, userAgent, createdAt, lastSeenAt
+
+cronRuns/{runDate}  日次Cron実行記録（トップレベル・サーバー専用。ほかのコレクションとの関係なし。個人情報は持たない） → テーブルNo.5
+      runDate, status, startedAt, finishedAt, createdCount, sentCount, failedCount, errorCode, expireAt, updatedAt
+A8=【コレクション一覧と区分】
+A9=No.1 users：初期版で作る（Must）
+No.2 subscriptions：初期版で作る（Must）
+No.3 notificationEvents：初期版で作る（Must）
+No.4 webPushSubscriptions：初期版で作る（Should。Web Push の購読と送信を削ったときは使わない）
+No.5 cronRuns：初期版で作る（Must）
+Want・MVP後：なし（画像アップロード、料金履歴planHistory、家族共有、LINE・メール関連のデータは作らない）
+
+【関係（1対多と参照）】
+・users 1 ─ 多 subscriptions：親子。各ドキュメントの uid → users/{uid}
+・users 1 ─ 多 notificationEvents：親子。uid → users/{uid}
+・users 1 ─ 多 webPushSubscriptions：親子。uid → users/{uid}
+・subscriptions 1 ─ 多 notificationEvents：notificationEvents.subscriptionId → subscriptions.subscriptionId（サブスク削除後も履歴は残す）
+・webPushSubscriptions 多 ─ 多 notificationEvents（1件の通知は複数の端末に届き、1台の端末は複数の通知を受け取る）：notificationEvents.webPushDeliveredIds[] → webPushSubscriptions.webPushId（送り終えた端末の記録）
+※ どれもFirestoreが強制する外部キーではない。
+※ ブラウザからFirestoreへ直接アクセスすることはない（セキュリティルールで全面拒否）。すべてサーバーAPI経由。
+A10=【用語説明】
+● uid：Firebase Authenticationが発行するユーザーID。
+● ドキュメント：Firestoreで1件のデータを表す単位。
+● サブコレクション：親ドキュメントの配下に置く関連データ。
+● Timestamp：Firestoreの日付・時刻の型。
+● YYYY-MM-DD：請求日など日付だけを表す文字列。日本時間（Asia/Tokyo）の日付で、タイムゾーンによる日付のずれを防ぐ。
+● サーバー専用：ブラウザからは読み書きできず、サーバーAPIだけが読み書きするデータ。
+● データ型：STRING＝文字列、INT＝整数（Firestore の number 型に整数だけを入れる）、BOOLEAN＝真偽値、TIMESTAMP＝日時（Firestore の Timestamp）、ARRAY<…>＝配列、MAP＝名前つきの値の組。
+● PK＝主キー（ドキュメントID）。FK＝論理的な外部キー（ほかのコレクションの ID。Firestore は強制しない）。
+● このファイルのシート：1.概要／1-2.ER図／2.テーブル定義書(No1〜No5)／3.補足設計／4.CRUD図（処理ごとの読み書き）／5.インデックス定義。
+A12=【変更履歴】
+2026-10-21　v1 提出。
+2026-10-28　次回請求日（nextBillingDate）をサーバーが計算して保存する方式に変更。F-09・F-11を対象外に変更。
+2026-11-04　Firestoreはブラウザから直接読み書きしない（Rulesは全面拒否）。管理用のコレクション（削除ジョブ・回数制限など）を減らした。画像アップロードを廃止し、websiteUrl（F-13）に変更。
+2026-11-05　R12：書類間の仕様を統一（Cronは1日2本、失敗時の再開、期限切れの削除件数など）。
+2026-11-06　R12：AIで全機能を通しで作り直して確かめ、設計書に書いていなかった所を4冊に反映した。Pushのendpointの上限、Push購読の登録・通知の作成で users を読む transaction、アカウント削除と重なる書き込みの扱い（3.補足設計）、など。ファイル名を「_R12」にそろえた。
+2026-11-06　R13：統合日ごとの削る候補、S-13 からのアカウント削除の画面・遷移・関連機能、後片づけが失敗したときの運用の手順、ログアウトでは必ずブラウザの購読を解除する、Cron の締切の書き方、テストの前提（No.17・20・49・62）を直した。この改訂は授業外で行った。
+A14=【変更履歴（続き）】
+2026-11-07　R13（追記）：S-13 からのアカウント削除を詳細_F-07・API共通仕様・横断仕様につなげた。Auth の一時障害は503（サインアウトしない）。F-04・F-12 の関連画面に S-06。α版の Cron のデモの扱い、テスト No.37 の作り方を書いた。
+2026-11-07　R13（追記2）：401 と 503 の分け方（verifyIdToken のエラーごと）とテスト、S-13 の削除リンクは常に表示、無料枠を超えたときは当日中の再開を期待しない、型定義に一覧・Push購読・Cron の応答、関連 ID と API 列の漏れ、Push から開いても既読にしない、を直した。
+2026-11-07　R13（追記3）：型定義に残りの応答の型と userAgent の null、画面テストは mockApi でサーバーの値を固定、bootstrap の失敗の扱い（401/409/503/その他）、S-09 のスイッチの失敗の文、503 と無料枠超過の区別、S-13 の削除リンクは常に表示の書き方をそろえた、テストの差し替え口、テストの期待値（No.3・10・46）、read-all の上限、F-04・F-07 の副担当、関連 API の漏れを直した。
+2026-11-07　R14：「決まりの一覧」（docs/決まりの一覧.md）を作り、全書類をそれに合わせた。遅れた Must は 12/1 の予備（1件・順番を決めた。取り消し：R15 で 11/24 の予備を足した）、11/24 の意味、11/10 の初回デプロイと鍵の入力、ゲートが反応するエラーと S-09 のスイッチの文、bootstrap の失敗の扱い（S-01 の再試行は bootstrap だけ）、削除の再試行で user-not-found は削除済み（取り消し：R15 で、応答が届かないときはサインアウトして案内する形に変更）、購読が無い端末ではログアウトで DELETE を呼ばない、Push の画面テスト、F-13 の副担当。
+2026-11-07　R15：F-10 の検索・並べ替えを Want にし、11/24 の予備を足した。削除の応答が届かないときはサインアウトして案内する（user-not-found で判定する R14 の形は取り消し）。メール列挙保護は有効のまま。onApiGate と Gates の書き分け、S-01・S-13 の 401、S-09 のスイッチのゲートのとき、テスト（No.4・17・38・58・63）、名前を姓に、ログアウトで購読が無い端末は DELETE を呼ばない（DB）。
+2026-11-07　R15（11/07 の直し）：決まりの一覧の項目ごとに、言い回しに関係なく全書類を読み直して食い違いを直した。11/11 の確認は呉屋がまとめて行う。削除の時間切れは30秒、S-01 の再試行の画面、S-09 ④をオフにする順番、bootstrap の 409 で onApiGate を呼ばない、を書いた。
+A15=2026-11-08　R15（11/08 の直し）：「1-2.ER図」（IE記法）・「4.CRUD図」・「5.インデックス定義」を足した。テーブル定義書の制約に論理的な外部キー（FK）、用語説明にデータ型を書いた。3.補足設計に、データ量の見積もり・バックアップ・画面とAPIから読まない項目を足し、F-12 が subscriptions を読むこと、consentHistory の書き方、Cron の確認の当番は決まりの一覧 B-8 を見ること、を直した。
+2026-11-09　R15（11/09 の直し。現在の版。2回目の精査と試し実行4回目の後の直しを含む）：webPushSubscriptions の区分を Should に（Web Push の購読と送信を削ったときは使わない）。試し実行4回目の後：3.補足設計のアカウント削除の⑤を「サインアウトして S-02 へ移る」に直した。3回目の精査（11/09。補足15）：email の空文字、任意の項目の既定値 null、cronRuns の件数の既定値 0、Push 購読の掃除（9件まで）、in の2値の書き方、ログアウトの2.5秒・3秒。4回目の精査（11/10。補足18）：subscriptionCount を読む所の書き方。補足19（11/10）：日程を授業日2日ぶん後ろへずらした（残ったデータの点検は 12/2 と 12/9、公開の期間は 2026-12-01〜12-24、版の例は 2026-12-01）。補足21（11/10）：Cron を1日3本にした（18時台を足した）。
+（全書類の変更の詳細は docs/変更履歴.md）
+
+##### シート：1-2.ER図
+A1=データベース設計書
+A3=1-2. ER図（IE記法）
+A4=「1.概要」の文字の木（A7）と同じ内容を、IE記法の図にしたもの。5つのコレクションと、ログインを管理する Firebase Authentication（外部サービス）の関係を示す。実線は users の下のサブコレクション（親子）、点線は ID で参照するだけの関係。Firestore は外部キーを強制しないので、点線の関係の整合性はサーバーAPI（Admin SDK）で守る。各項目の意味・制約は「2.テーブル定義書」、処理ごとの読み書きは「4.CRUD図」。
+
+##### シート：2.テーブル定義書(No1)
+A1=データベース設計書
+A3=2. テーブル定義書
+A4=各コレクションの項目を定義する。制約の PK は主キー（ドキュメントID）、FK は論理的な外部キー（ほかのコレクションの ID を持つ。Firestore は強制しないので、サーバーAPIで守る）。データ型は「1.概要」の用語説明。データ型のかっこは桁数（文字数）・値の範囲、制約の「既定値」は作るときに入れる値（画面の初期値ではない）。
+A6=テーブルNo.1
+A7=テーブル論理名 | C7=ユーザードキュメント
+A8=テーブル物理名 | C8=users/{uid}
+A9=概要 | C9=ユーザー1人につき1件。メールアドレス、通知の全体設定、規約の同意記録（最新の版と日時、consentHistory）、登録件数を持つ。区分：初期版で作る（Must）。
+A10=関連機能ID | C10=F-01・F-02・F-03・F-04・F-05・F-06・F-07・F-12
+A11=No. | B11=論理名 | C11=物理名 | D11=データ型（桁数・範囲） | E11=制約・既定値 | F11=備考
+A12=1 | B12=ユーザーID | C12=uid | D12=STRING（Firebase の UID） | E12=PK, NOT NULL | F12=Firebase Authenticationが発行するUID。ドキュメントIDと同じ値。ドキュメントの項目としても保存する。
+A13=2 | B13=メールアドレス | C13=email | D13=STRING（メールアドレス。ID token に email クレームが無ければ空文字） | E13=NOT NULL | F13=ログインに使うメールアドレス。パスワードは保存しない。
+A14=3 | B14=登録件数 | C14=subscriptionCount | D14=INT（0〜200） | E14=NOT NULL, 既定値 0 | F14=サブスクの登録件数。サーバーがトランザクションで増減し、200件を超えないようにする。上限の判定は、登録の transaction の中で読み取ったサブスクの実際の件数で行う（この値では判定しない）。登録が成功したときは、この値を「読み取った件数+1」にする（ずれていても直る）。削除では1減らす（0未満にしない）。画面の登録数にも使わない（実際の件数を表示する）。監査とテストのための値（応答や画面に使う API は無い。DELETE は0未満にしないために、transaction の中で現在値を読む。コンソールで実際の件数と比べる）。既定値0。
+A15=4 | B15=通知の全体設定 | C15=accountNotificationEnabled | D15=BOOLEAN | E15=NOT NULL, 既定値 true | F15=アカウント全体の通知ON/OFF（S-09）。falseのときは通知イベントも作らない。既定値true。項目が無いドキュメントは true として扱う（false のときだけオフ）。サブスクごとの設定は subscriptions.subscriptionNotificationEnabled。
+A16=5 | B16=同意日時 | C16=termsAcceptedAt | D16=TIMESTAMP | E16=NOT NULL | F16=利用規約とプライバシーポリシーに同時に同意した最新の日時（過去の同意は consentHistory）。サーバー時刻（Timestamp.now()）で保存し、consentHistory の最新の acceptedAt と同じ値にする。運用・監査用（画面・API からは読まない。コンソールで見る）。
+A17=6 | B17=利用規約の版 | C17=termsVersion | D17=STRING（版。例 2026-12-01） | E17=NOT NULL | F17=同意した利用規約の版。環境変数 NEXT_PUBLIC_TERMS_VERSION と比較する。
+A18=7 | B18=プライバシーポリシーの版 | C18=privacyVersion | D18=STRING（版。例 2026-12-01） | E18=NOT NULL | F18=同意したプライバシーポリシーの版。環境変数 NEXT_PUBLIC_PRIVACY_VERSION と比較する。
+A19=8 | B19=作成日時 | C19=createdAt | D19=TIMESTAMP | E19=NOT NULL | F19=サーバー時刻。
+A20=9 | B20=更新日時 | C20=updatedAt | D20=TIMESTAMP | E20=NOT NULL | F20=サーバー時刻。サブスクの登録・削除で subscriptionCount だけを変えるときは変えない。規約の再同意（版と同意日時の更新）と、通知の全体設定を変えたときは更新する。
+A21=10 | B21=同意の記録 | C21=consentHistory | D21=ARRAY<MAP>（最大20件） | E21=NOT NULL（作成時は1件） | F21=同意のたびに要素を足していく配列（既にある要素は書き換えない）。各要素は termsVersion・privacyVersion・acceptedAt（TIMESTAMP。transaction の前にサーバーが Timestamp.now() で1回作り、termsAcceptedAt と同じ値。配列の中で serverTimestamp は使わない）・kind（画面からは送らず、bootstrap の transaction の中でサーバーが決める：users が無くて作るとき＝'create'、あって版を更新するとき＝'reconsent'。S-01・S-13 のどちらからでも同じ）。bootstrap（S-01・S-13 から）の transaction の中で1件足す（作成時は1件）。最大20件で、超えたら古いものから消す。termsAcceptedAt は最新の同意日時として残す。運用・監査用（画面・API からは読まない。コンソールで見る）。
+
+##### シート：2.テーブル定義書(No2)
+A1=データベース設計書
+A3=2. テーブル定義書
+A4=各コレクションの項目を定義する。制約の PK は主キー（ドキュメントID）、FK は論理的な外部キー（ほかのコレクションの ID を持つ。Firestore は強制しないので、サーバーAPIで守る）。データ型は「1.概要」の用語説明。データ型のかっこは桁数（文字数）・値の範囲、制約の「既定値」は作るときに入れる値（画面の初期値ではない）。
+A6=テーブルNo.2
+A7=テーブル論理名 | C7=サブスクドキュメント
+A8=テーブル物理名 | C8=users/{uid}/subscriptions/{subscriptionId}
+A9=概要 | C9=契約中のサブスク1件につき1件。1ユーザー最大200件。次回請求日はサーバーが計算して保存する。アイコン画像は保存しない（画面で計算して表示）。区分：初期版で作る（Must）。
+A10=関連機能ID | C10=F-03・F-04・F-05・F-06・F-08・F-10・F-12（通知一覧で、サブスクが今もあるかを読む）・F-07（アカウント削除で消す）
+A11=No. | B11=論理名 | C11=物理名 | D11=データ型（桁数・範囲） | E11=制約・既定値 | F11=備考
+A12=1 | B12=サブスクID | C12=subscriptionId | D12=STRING（20文字） | E12=PK, NOT NULL | F12=ドキュメントID（サーバーが採番）。 Firestoreの自動IDで、形式は英数字20文字（^[A-Za-z0-9]{20}$）。
+A13=2 | B13=ユーザーID | C13=uid | D13=STRING（Firebase の UID） | E13=FK（users.uid）, NOT NULL | F13=所有者のUID。親のusers/{uid}と同じ値。 collectionGroupの検索結果から持ち主を知るために持つ。
+A14=3 | B14=サービス名 | C14=serviceName | D14=STRING（1〜100文字） | E14=NOT NULL | F14=前後の空白を除いて1〜100文字。同名判定は前後の空白を除き、英字の大文字小文字を区別しない。
+A15=4 | B15=プラン名 | C15=planName | D15=STRING（100文字以内） | E15=NULL可（既定値 null。省略しても null を保存） | F15=任意。100文字以内。
+A16=5 | B16=料金 | C16=price | D16=INT（0〜10,000,000） | E16=NOT NULL | F16=1回の請求額（円）。0〜10,000,000の整数。
+A17=6 | B17=請求周期 | C17=billingCycle | D17=STRING（4種の値） | E17=NOT NULL | F17=monthly（月額（毎月））／quarterly（3か月）／semiAnnual（6か月）／yearly（年額（毎年））のいずれか。
+A18=7 | B18=請求日 | C18=firstBillingDate | D18=STRING（10文字 YYYY-MM-DD） | E18=NOT NULL | F18=YYYY-MM-DD。2000-01-01〜2100-12-31の実在する日付。過去に実際に請求された日、または次の請求日を入力する（画面名「請求日」）。編集できる。編集すると nextBillingDate を再計算する。トライアルONのときは trialEndDate より後の日付。
+A19=8 | B19=次回請求日 | C19=nextBillingDate | D19=STRING（10文字 YYYY-MM-DD） | E19=NOT NULL | F19=YYYY-MM-DD。日本時間の今日（当日を含む）以降で最も早い請求日。サーバーが firstBillingDate と請求周期から計算して保存する。画面から直接編集できず、APIの入力にも指定できない（400）。 保存値はCronの検索用。APIが返す値は、請求日と周期から毎回計算した値。
+A20=9 | B20=請求日方式 | C20=billingDayMode | D20=STRING（2種の値） | E20=NOT NULL | F20=fixedDay（請求日と同じ日。存在しない月は月末日）／endOfMonth（毎月末日。請求日が月末日のときだけ選べる。周期が3か月以上のときは請求がある月の末日）。
+A21=10 | B21=カテゴリー | C21=category | D21=STRING（9種の値） | E21=NOT NULL | F21=video（動画）／music（音楽）／cloud（クラウド）／learning（学習）／ai（AI）／game（ゲーム）／news（ニュース）／work（仕事）／other（その他）。画面の初期値は other。APIでは必須で、省略すると400。
+A22=11 | B22=無料トライアル | C22=trialEnabled | D22=BOOLEAN | E22=NOT NULL, 既定値 false | F22=無料トライアル中かどうか。既定値false。
+A23=12 | B23=トライアル最終無料日 | C23=trialEndDate | D23=STRING（10文字 YYYY-MM-DD） | E23=NULL可（既定値 null。省略しても null を保存） | F23=YYYY-MM-DD。trialEnabledがtrueのとき必須で、firstBillingDateより前の日付。falseのときはnull。
+A24=13 | B24=公式サイトURL | C24=websiteUrl | D24=STRING（2048文字以内） | E24=NULL可（既定値 null。省略しても null を保存） | F24=任意。http:// または https:// で始まる2048文字以内。アイコン表示のドメイン決定にも使う。
+A25=14 | B25=解約ページURL | C25=cancelUrl | D25=STRING（2048文字以内） | E25=NULL可（既定値 null。省略しても null を保存） | F25=任意。http:// または https:// で始まる2048文字以内。
+A26=15 | B26=支払方法の表示名 | C26=paymentMethod | D26=STRING（80文字以内） | E26=NULL可（既定値 null。省略しても null を保存） | F26=任意。80文字以内の表示名のみ。カード番号・CVV・認証情報は保存しない。半角数字13桁以上（数字の間に半角空白・全角空白・半角ハイフンが1つまで入ってよい）は拒否する。
+A27=16 | B27=メモ | C27=memo | D27=STRING（1000文字以内） | E27=NULL可（既定値 null。省略しても null を保存） | F27=任意。1000文字以内の自由記述。負担額の内訳などを書ける（自動計算はしない）。paymentMethod と同じ条件のカード番号様の数字は拒否する。
+A28=17 | B28=サブスクごとの通知設定 | C28=subscriptionNotificationEnabled | D28=BOOLEAN | E28=NOT NULL, 既定値 true | F28=このサブスクの通知ON/OFF。既定値true。項目が無いドキュメントは true として扱う（false のときだけオフ）。アカウント全体の設定は users.accountNotificationEnabled。
+A29=18 | B29=作成日時 | C29=createdAt | D29=TIMESTAMP | E29=NOT NULL | F29=サーバー時刻。
+A30=19 | B30=更新日時 | C30=updatedAt | D30=TIMESTAMP | E30=NOT NULL | F30=サーバー時刻。Cronが nextBillingDate だけを更新するときは変えない。
+
+##### シート：2.テーブル定義書(No3)
+A1=データベース設計書
+A3=2. テーブル定義書
+A4=各コレクションの項目を定義する。制約の PK は主キー（ドキュメントID）、FK は論理的な外部キー（ほかのコレクションの ID を持つ。Firestore は強制しないので、サーバーAPIで守る）。データ型は「1.概要」の用語説明。データ型のかっこは桁数（文字数）・値の範囲、制約の「既定値」は作るときに入れる値（画面の初期値ではない）。
+A6=テーブルNo.3
+A7=テーブル論理名 | C7=通知イベントドキュメント
+A8=テーブル物理名 | C8=users/{uid}/notificationEvents/{notificationId}
+A9=概要 | C9=通知の送信日にCronが1件ずつ作る。イベントが存在することが通知履歴の1件を表し、viewedAtで既読を管理する。サブスクを削除しても履歴は残す。区分：初期版で作る（Must）。
+A10=関連機能ID | C10=F-04・F-06・F-08・F-12・F-07（アカウント削除で消す）
+A11=No. | B11=論理名 | C11=物理名 | D11=データ型（桁数・範囲） | E11=制約・既定値 | F11=備考
+A12=1 | B12=通知ID | C12=notificationId | D12=STRING（64文字。SHA-256 の16進） | E12=PK, NOT NULL | F12=uid・subscriptionId・notificationType・daysBefore・targetDate を「|」でつないだ文字列の SHA-256（小文字16進）。同じ通知は同じIDになるので、二重作成を防げる。
+A13=2 | B13=ユーザーID | C13=uid | D13=STRING（Firebase の UID） | E13=FK（users.uid）, NOT NULL | F13=所有者のUID。
+A14=3 | B14=サブスクID | C14=subscriptionId | D14=STRING（20文字） | E14=FK（subscriptions.subscriptionId。参照のみ）, NOT NULL | F14=対象サブスクのID。サブスク削除後は該当ドキュメントが無くなるが、イベントは残す。
+A15=4 | B15=通知時のサービス名 | C15=serviceNameAtNotification | D15=STRING（1〜100文字） | E15=NOT NULL | F15=通知を作ったときのサービス名。削除後の履歴表示に使う。
+A16=5 | B16=通知種別 | C16=notificationType | D16=STRING（2種の値） | E16=NOT NULL | F16=billing（請求日）／trial_end（トライアル最終無料日）。
+A17=6 | B17=何日前 | C17=daysBefore | D17=INT（7 または 1） | E17=NOT NULL | F17=7 または 1。当日通知は作らない。
+A18=7 | B18=送信日 | C18=targetDate | D18=STRING（10文字 YYYY-MM-DD） | E18=NOT NULL | F18=YYYY-MM-DD。通知を送る日（Cron実行日の日本時間の日付）。
+A19=8 | B19=タイトル | C19=title | D19=STRING | E19=NOT NULL | F19=通知のタイトル。
+A20=9 | B20=本文 | C20=body | D20=STRING | E20=NOT NULL | F20=通知の本文。文面は要件定義書「共通ルール」の「通知の文面」のとおり（請求日または最終無料日の MM/DD。billing は請求額も入れる）。残り日数は title に入れ、daysBefore と同じ値。
+A21=10 | B21=通知時の料金 | C21=priceAtNotification | D21=INT（0〜10,000,000） | E21=NULL可 | F21=billingでは通知を作ったときの料金（円）。trial_endではnull。後日の料金変更で上書きしない。
+A22=11 | B22=既読日時 | C22=viewedAt | D22=TIMESTAMP | E22=NULL可, 既定値 null | F22=nullなら未読、日時が入っていれば既読。既読を未読に戻さない。作成時は null を項目として保存する（項目を省くと、未読件数の検索 viewedAt==null に合わない）。
+A23=12 | B23=Push送信状態 | C23=webPushStatus | D23=STRING（5種の値） | E23=NOT NULL, 既定値 pending | F23=pending（未送信）／sent（全端末に成功）／partially_sent（成功と失敗が混在）／failed（成功した端末が0）／skipped（送信先の端末も、送り終えた端末も無い）。成功には、前の実行で送り終えた端末（webPushDeliveredIds にあるID）も数える。既定値pending。
+A24=13 | B24=Push送信日時 | C24=webPushSentAt | D24=TIMESTAMP | E24=NULL可, 既定値 null | F24=Pushの送信を完了した日時（sent・partially_sent・failed のとき）。作成時と skipped のときは null を保存する。運用・監査用（画面・API からは読まない。コンソールで見る）。
+A25=14 | B25=Push直近エラーコード | C25=webPushLastErrorCode | D25=STRING | E25=NULL可, 既定値 null | F25=直近の失敗の理由。HTTPの応答があればその番号の文字列（例：410、503）、タイムアウトは timeout、そのほかの通信エラーは network_error、VAPID鍵の未設定は vapid_not_configured。失敗が無ければ null（作成時も null を保存する）。運用・監査用（画面・API からは読まない。コンソールで見る）。
+A26=15 | B26=送信済み端末のID | C26=webPushDeliveredIds | D26=ARRAY<STRING> | E26=FK（webPushSubscriptions.webPushId の配列）, NOT NULL, 既定値 []（空の配列） | F26=Pushを送り終えた端末のID（webPushSubscriptionsのID）の一覧。再実行のとき、ここにある端末へは送らない。作成時は空の配列（null にしない。型定義も string[]）。
+A27=16 | B27=保持期限 | C27=expireAt | D27=TIMESTAMP | E27=NOT NULL | F27=createdAt の90日後。期限が過ぎると、Cronの cleanup 段階で削除する（TTL機能は課金が必要なため使わない）。
+A28=17 | B28=作成日時 | C28=createdAt | D28=TIMESTAMP | E28=NOT NULL | F28=サーバー時刻。Timestamp.fromDate(new Date()) のミリ秒精度で保存する（通知一覧の cursor がミリ秒で比べるため、serverTimestamp は使わない）。
+A29=18 | B29=更新日時 | C29=updatedAt | D29=TIMESTAMP | E29=NOT NULL | F29=サーバー時刻。作成時は createdAt と同じ値。Pushの結果を保存するとき、既読にするときに更新する。
+
+##### シート：2.テーブル定義書(No4)
+A1=データベース設計書
+A3=2. テーブル定義書
+A4=各コレクションの項目を定義する。制約の PK は主キー（ドキュメントID）、FK は論理的な外部キー（ほかのコレクションの ID を持つ。Firestore は強制しないので、サーバーAPIで守る）。データ型は「1.概要」の用語説明。データ型のかっこは桁数（文字数）・値の範囲、制約の「既定値」は作るときに入れる値（画面の初期値ではない）。
+A6=テーブルNo.4
+A7=テーブル論理名 | C7=Web Push購読ドキュメント
+A8=テーブル物理名 | C8=users/{uid}/webPushSubscriptions/{webPushId}
+A9=概要 | C9=端末（ブラウザ）ごとのWeb Push購読情報。1端末につき1件。区分：初期版で作る（Should。Web Push の購読と送信を削ったときは使わない〔空のまま〕）。別の端末から同時に登録すると、まれに一時的に11件になる（既知の制限。次の登録で10件以下に戻る）。
+A10=関連機能ID | C10=F-02・F-06・F-12・F-07（アカウント削除で消す）
+A11=No. | B11=論理名 | C11=物理名 | D11=データ型（桁数・範囲） | E11=制約・既定値 | F11=備考
+A12=1 | B12=購読ID | C12=webPushId | D12=STRING（64文字。SHA-256 の16進） | E12=PK, NOT NULL | F12=endpointの文字列を加工せずにSHA-256にかけた値（小文字16進）。同じ端末を2回登録しても1件になる。
+A13=2 | B13=ユーザーID | C13=uid | D13=STRING（Firebase の UID） | E13=FK（users.uid）, NOT NULL | F13=所有者のUID。
+A14=3 | B14=送信先URL | C14=endpoint | D14=STRING（UTF-8 で1499バイト以内） | E14=NOT NULL | F14=ブラウザが発行するPush送信先URL。https で始まり、UTF-8で1499バイト以内（Firestore が検索の値に使える長さ）。加工せずに保存する。同じendpointが別ユーザーに登録されていたら、そちらを削除してから登録する。
+A15=4 | B15=公開鍵 | C15=p256dh | D15=STRING（1〜512文字） | E15=NOT NULL | F15=購読の暗号化用公開鍵。1〜512文字。
+A16=5 | B16=認証シークレット | C16=auth | D16=STRING（1〜512文字） | E16=NOT NULL | F16=購読の認証用シークレット。1〜512文字。ログに出さない。
+A17=6 | B17=ブラウザ情報 | C17=userAgent | D17=STRING（512文字以内） | E17=NULL可 | F17=端末の判別に使う文字列。（Pushの登録時に、ブラウザが本文の userAgent で送る navigator.userAgent を保存する。512文字以内。送られなければ null）。問い合わせのときに端末を見分けるための値（読む画面・API は無い。コンソールで見る）。
+A18=7 | B18=作成日時 | C18=createdAt | D18=TIMESTAMP | E18=NOT NULL | F18=サーバー時刻。同じ endpoint を上書きするときは変えない。
+A19=8 | B19=最終登録日時 | C19=lastSeenAt | D19=TIMESTAMP | E19=NULL可 | F19=購読を最後に登録・更新した日時（POST /api/push/subscribe のとき。端末を使っただけでは更新しない）。11台目の登録では、この値が最も古い購読を消す。
+
+##### シート：2.テーブル定義書(No5)
+A1=データベース設計書
+A3=2. テーブル定義書
+A4=各コレクションの項目を定義する。制約の PK は主キー（ドキュメントID）、FK は論理的な外部キー（ほかのコレクションの ID を持つ。Firestore は強制しないので、サーバーAPIで守る）。データ型は「1.概要」の用語説明。データ型のかっこは桁数（文字数）・値の範囲、制約の「既定値」は作るときに入れる値（画面の初期値ではない）。
+A6=テーブルNo.5
+A7=テーブル論理名 | C7=日次Cron実行記録ドキュメント
+A8=テーブル物理名 | C8=cronRuns/{runDate}
+A9=概要 | C9=日次Cronの実行記録。トップレベルに置き、サーバー専用。同じ日に二重に動かさないための目印にもする。個人情報（uid など）は持たない。区分：初期版で作る（Must）。
+A10=関連機能ID | C10=F-06
+A11=No. | B11=論理名 | C11=物理名 | D11=データ型（桁数・範囲） | E11=制約・既定値 | F11=備考
+A12=1 | B12=実行日 | C12=runDate | D12=STRING（10文字 YYYY-MM-DD） | E12=PK, NOT NULL | F12=日本時間の日付（YYYY-MM-DD）。ドキュメントIDと同じ値。
+A13=2 | B13=状態 | C13=status | D13=STRING（4種の値） | E13=NOT NULL | F13=running（実行中）／completed（完了）／partial（時間切れ、または次回請求日の更新の回数の上限で一部のみ）／failed（失敗）。
+A14=3 | B14=開始日時 | C14=startedAt | D14=TIMESTAMP | E14=NOT NULL | F14=実行を始めた日時（再開始のたびに今の時刻にする）。runningのまま10分以上たったものは、止まったものとみなして再実行を許可する。
+A15=4 | B15=終了日時 | C15=finishedAt | D15=TIMESTAMP | E15=NULL可 | F15=実行を終えた日時（completed・partial・failed にしたとき）。running にするとき（開始・再開始）は null にする。運用・監査用（画面・API からは読まない。コンソールで見る）。成功基準⑤の Cron の実行時間は、startedAt との差で測る（200件のデータを入れた状態。機能設計書 テスト一覧 No.62）。
+A16=5 | B16=作成した通知数 | C16=createdCount | D16=INT（0以上） | E16=NOT NULL（既定値 0。running で作るときは 0） | F16=このrunで作成した通知イベントの件数（その日の累計。同じ日の再実行では加算する）。
+A17=6 | B17=送信成功数 | C17=sentCount | D17=INT（0以上） | E17=NOT NULL（既定値 0。running で作るときは 0） | F17=Pushが成功したイベントの件数（webPushStatus が sent・partially_sent の数。skipped は数えない。その日の累計）。
+A18=7 | B18=送信失敗数 | C18=failedCount | D18=INT（0以上） | E18=NOT NULL（既定値 0。running で作るときは 0） | F18=Pushが失敗したイベントの件数と、次回請求日の更新に失敗したサブスクの件数の合計。同じ日の再実行で、更新できない同じサブスクを重ねて数えることがある。
+A19=8 | B19=エラーコード | C19=errorCode | D19=STRING（4種のコード） | E19=NULL可 | F19=failedのときの原因コード（機能設計書「API共通仕様」の Firestore のエラーの変換で決まるコード：CONFLICT／RESOURCE_EXHAUSTED／TEMPORARILY_UNAVAILABLE／INTERNAL_ERROR。エラーの本文は保存しない）。failed 以外は null（running にするときに null に戻す）。
+A20=9 | B20=保持期限 | C20=expireAt | D20=TIMESTAMP | E20=NOT NULL | F20=startedAt の90日後（再実行のたびに更新する）。期限が過ぎると、Cronの cleanup 段階で削除する（TTL機能は課金が必要なため使わない）。
+A21=10 | B21=更新日時 | C21=updatedAt | D21=TIMESTAMP | E21=NOT NULL | F21=実行や再実行のたびに更新する（再実行の追跡用）。
+
+##### シート：3.補足設計
+A1=SubWatch Firestore 補足設計
+A2=項目 | B2=内容
+A3=データ構造 | B3=FirestoreはNoSQLデータベース。SQLの外部キー制約やJOINは使わず、users/{uid}配下のサブコレクションでユーザーごとにデータを分ける。通知の設定はusers/{uid}の中に持ち、別の設定ドキュメントは作らない。
+A4=関連 | B4=users/{uid} 1件に対し、subscriptions／notificationEvents／webPushSubscriptions は複数件。cronRunsだけはトップレベルに置く（サーバー専用）。
+A5=認証 | B5=Firebase Authenticationを使う。パスワードはFirestoreに保存しない。
+A6=アクセス制御 | B6=セキュリティルールは全パスで allow read, write: if false; とし、ブラウザからのFirestoreの読み書きをすべて拒否する。データの読み書きはサーバーAPI（Firebase Admin SDK）だけが行う。サーバーAPIはFirebaseのIDトークンからuidを取り出し、そのuidのデータだけを返す。Admin SDKはルールを無視するので、すべてのAPIで本人確認と所有者確認を行う。画面に表示するデータもすべてサーバーAPIから受け取る。非機能の測定（No.61）の200件のテストデータは、API を200回呼ばず Admin SDK のスクリプトで直接入れる（無料枠の読み取り1日5万回を使い切らないため。登録1回で、上限と同名の判定のためにそのユーザーのサブスク最大200件を読む）。スクリプトは scripts/seed-200.ts（devDependency の tsx で動かす：node --env-file=$HOME/secrets/cron.env --import tsx scripts/seed-200.ts）で、サブスクが0件のテスト用アカウントに入れる。各サブスクは API の登録と同じ項目で、ID は自動の ID（collection().doc()）、subscriptionNotificationEnabled は false にする（本番の Cron に通知を作らせないため）。各サブスクの nextBillingDate を lib/billing.ts で計算して入れ、users の subscriptionCount を 200 にする。本番で動かすのは金城（鍵を持つ人）。
+A7=秘密情報 | B7=VAPID秘密鍵、Cronシークレット（CRON_SECRET）、Firebase Admin SDKのサービスアカウントキー（FIREBASE_SERVICE_ACCOUNT_JSON）は、Vercelの環境変数（本番）と、鍵を持つ人のパソコンの ~/secrets/ の中だけに置く。クライアントのコード、GitHub、Firestoreには置かない。
+A8=カード情報 | B8=カード番号の全桁、CVV、決済の認証情報は保存しない。paymentMethodは表示名だけ。半角数字13桁以上（数字の間に半角空白・全角空白・半角ハイフンが1つまで）は、paymentMethodとmemoで保存前に拒否する。
+A9=日付 | B9=請求日など日付だけの値はYYYY-MM-DD文字列、登録・更新・送信の日時はTimestampで保存する。基準のタイムゾーンはAsia/Tokyo。日時はAPIサーバーの時刻で記録する（各テーブルの「サーバー時刻」も同じ）。
+A10=通知の重複防止 | B10=通知IDは、uid・subscriptionId・notificationType・daysBefore・targetDate を「|」でつないだ文字列のSHA-256（小文字16進）にする。作成は「すでに存在すれば作らない」（create）で行うので、Cronが2回動いても重複しない。daysBeforeは7または1。
+A11=通知の料金 | B11=priceAtNotificationに通知を作ったときの料金を保存し、後日の料金変更で上書きしない。
+A12=通知の作成時期 | B12=通知イベントは、通知の送信日（targetDate）のCron実行時にだけ作る。未来の分を先に作ることはしない。そのため、通知一覧にはその日までに送信日が来た通知だけが並ぶ。0円の billing は作らない。同じ実行で trial_end を作るサブスクは billing を作らない。
+A13=保持・削除 | B13=通知イベント（notificationEvents）はcreatedAtの90日後、Cron実行記録（cronRuns）はstartedAtの90日後をexpireAtにする。Cronの cleanup 段階で、expireAt が現在以前のものを1回500件、1実行で最大10回（各種類5,000件）削除する。締切を過ぎているとき、partial のときは行わない（FirestoreのTTL機能は課金が必要なため使わない。notificationEvents は collectionGroup の検索のため expireAt の単一項目インデックスが必要）。削除が遅れることがあるため、通知一覧は常に createdAt が直近90日のものだけを返す。
+A14=サブスク削除 | B14=トランザクションで、サブスクの削除とusers/{uid}.subscriptionCountの1減算を同時に行う。そのサブスクの通知イベントは削除せず履歴として残し、一覧ではserviceNameAtNotificationを表示して詳細へのリンクは出さない。
+A15=アカウント削除 | B15=即時に行う（同期処理）。手順：①IDトークンのauth_timeが5分以内か確認する（古ければ401 REAUTH_REQUIRED） ②users/{uid}を、配下のsubscriptions・notificationEvents・webPushSubscriptionsごと再帰的に削除する ③Firebase Authenticationのアカウントを削除する ④後片づけとして、もう一度②を行う（②の途中から③までの間に、別の端末から届いた登録を残さないため。先に users/{uid} のドキュメントを消してから、配下を再帰的に削除する。失敗したら合わせて3回まで行い、3回とも失敗しても⑤へ進む。このときはログに code だけを出し〔uid は出さない〕、Firestore には記録しない。12/2 と 12/9 に比嘉（Firebase の持ち主）が、文書が無く配下だけ残った users〔ID が斜体〕と、users の無い Auth アカウント〔作って1日以上〕と、ID が Authentication に無い users の文書を探して手で消す〔手順書 04〕） ⑤200を返し、クライアントはサインアウトして S-02 へ移る（logout() は使わず signOut。指示 04-17）。途中で失敗したら500 DELETE_FAILEDを返し、利用者がもう一度押すと最初からやり直せる（何回実行しても結果が同じ）。cronRunsには個人情報を持たないので削除対象外。Cron の通知の作成は、users/{uid} を読む transaction の中で行うので、削除と同時に動いても、持ち主のいない通知イベントは残らない。
+A16=無効なPush購読の削除 | B16=Pushの送信先から404または410が返ったら、その端末のwebPushSubscriptionsのドキュメントを削除する。401または403は構成エラー（鍵の設定ミスなど）なので購読は保持し、ログに残す。ログアウト時（S-09・S-13。S-01 の「やり直す」表示のログアウトと、S-02 でログイン済みのまま別の人がログインするときも、同じ logout()）にクライアントがDELETE /api/push/subscribeを呼んで、その端末の購読を削除する（ブラウザに購読が無い端末では呼ばない）。クライアントは、このAPIの結果（409・失敗を含む）に関係なく、ブラウザの購読を必ず解除する（この呼び出しでは onApiGate を呼ばない。DELETE の応答を待つのは2.5秒までで、logout() 全体の上限は3秒〔決まりの一覧 C-7〕）。このAPIは規約の版を確認しない（S-13からも呼べるようにするため。users が無ければ409）。
+A17=同じ端末の別ユーザー登録 | B17=同じendpointが別のuidに登録されていたら（collectionGroup webPushSubscriptions を endpoint で検索）、先にそのドキュメントを削除してから新しい所有者の購読を登録する。
+A18=Cronの検索条件とインデックス | B18=①古くなった次回請求日：collectionGroup subscriptions で nextBillingDate < 今日（日本時間）。単一項目インデックス nextBillingDate（コレクショングループ）。更新すると条件から外れるので、0件になるまで先頭から繰り返す（打ち切り条件は機能設計書「詳細_F-06」）。
+②請求の通知候補：collectionGroup subscriptions で nextBillingDate in（今日+1日と今日+7日の2値）。インデックスは①と同じ。
+③トライアルの通知候補：collectionGroup subscriptions で trialEndDate in（今日+1日と今日+7日の2値）。単一項目インデックス trialEndDate（コレクショングループ）。
+④同じ端末の重複確認：collectionGroup webPushSubscriptions で endpoint == 値。Firestore は1500バイト以上の文字列を検索の値に使えないので、endpoint は UTF-8で1499バイト以内だけを受け付ける（機能設計書「API共通仕様」の Push購読API）。単一項目インデックス endpoint（コレクショングループ）。
+⑤未読件数：users/{uid}/notificationEvents で viewedAt が null かつ createdAt が90日以内の件数を count() 集計する。コレクション範囲の複合インデックス（viewedAt 昇順＋createdAt 昇順）が1つ必要。すべて既読（POST /api/notifications/read-all）も同じ条件で検索し、400件ずつ既読にする。並びは指定しない（createdAt の昇順になり、同じ複合インデックスで足りる。降順を指定すると別のインデックスが必要になる）。
+⑥期限切れの削除（cleanup）：collectionGroup notificationEvents で expireAt <= 現在、および cronRuns で expireAt <= 現在を、500件ずつ削除する。notificationEvents は単一項目インデックス expireAt（コレクショングループ）が必要。cronRuns は自動のインデックスで足りる。
+※全体の通知設定（users.accountNotificationEnabled）は親のドキュメントにあるため、検索の条件には使えない。候補を見つけた後に users/{uid} を読んで確認する。subscriptionNotificationEnabledとprice=0の判定も、検索後にサーバーで行う。
+※通知一覧は users/{uid}/notificationEvents を createdAt の降順で読み、種別・未読の絞り込みはサーバーのメモリ上で行う（100件ずつ読み、条件に合うものが limit+1 件そろうまで繰り返す）。
+※インデックスは firestore.indexes.json に書き、GitHubで管理する。単一項目のインデックスは indexes ではなく fieldOverrides に書く。Emulatorではインデックスを確認できないので、本番にデプロイして確認する。
+A19=Cronの冪等性 | B19=cronRuns/{runDate} を実行の目印にする。completedなら何もしない（200・noop）、runningで開始から10分未満なら409 CRON_ALREADY_RUNNING、それ以外はrunningにして開始する。通知イベントは決定的IDなので、同じ日に再実行しても重複しない。作成は users/{uid} を読む transaction の中で行い（users/{uid} が無ければ作らない）、すでにあるとき（ALREADY_EXISTS を含む）だけ何もせず、ABORTED などは失敗として扱う。Push送信は、webPushStatusがpendingのイベントだけを対象にする。内部締切（240秒）を超えたらpartialで終了し、再実行すると続きから処理できる。
+Cronは1日3本（日本時間9時台・11時台・18時台。最大59分ずれる）で自動実行する。11時台と18時台は、前の実行の続き（partial・failed の再開）で、completed なら noop。手動の再実行は不要で、必要なら運用担当（金城）が実行できる。failed は同じ日の11時台に再開し、それでも失敗なら18時台に再開し、それでも失敗なら翌日の実行を待つ（その日の通知は後から作らない・送らない。古くなった次回請求日は翌日の refresh_stale で直る）。確認は10時以降に cronRuns で行う（9時台が partial・failed なら12時以降にもう一度見る）。確認の当番は決まりの一覧 B-8。手で実行するのは金城だけ。
+次回請求日の更新（refresh_stale）は、締切と最大回数で止まったら partial にする。想定外のデータだけが残ったときは続行して completed にし、failedCount に数える。更新は、読んだ文書の updateTime を前提条件に付けて1件ずつ行い、途中で消えたサブスク（NOT_FOUND）と、その間に編集されたサブスク（FAILED_PRECONDITION）は無視し（failedCount に数えない）、ほかのエラーは失敗とする。先頭から200件すべてが更新できないと打ち切り、ログに残す（まれな場合）。failedCount は、同じ日の再実行で同じサブスクを重ねて数えることがある。
+Push送信は、送り終えた端末のIDを通知イベントの webPushDeliveredIds に追記し、再実行では送らない（二重配信は完全には防げない）。1人あたりのPush購読は最大10端末で、登録の前に10件以上あれば、9件になるまで lastSeenAt の古い順に削除する（まれに一時的に11件。既知の制限。API共通仕様の Push購読の行）。
+A20=機能IDとデータの対応 | B20=F-01・F-02・F-03・F-04・F-05・F-06・F-07・F-12：users／F-03・F-04・F-05・F-06・F-07・F-08・F-10・F-12：subscriptions／F-04・F-06・F-07・F-08・F-12：notificationEvents／F-02・F-06・F-07・F-12：webPushSubscriptions／F-06：cronRuns（処理ごとの作成・読み取り・更新・削除は「4.CRUD図」）／F-13（アイコン表示）：subscriptions の websiteUrl とサービス名から画面で計算する（アイコン用のコレクションは作らない）。F-09（料金履歴）はMVP後で、コレクションは作らない。F-11は廃止。
+A21=残っている決定事項 | B21=なし。
+A22=データ量の見積もり | B22=保存容量の無料枠（Spark プラン）は1GiB。インデックスを含めて1件数KB（サブスク・通知イベントとも約4〜5KB）とすると、1人10件の登録（通知は90日で約60件）で1人0.3MB程度、100人でも数十MB。200件の利用者でも1人約7MB（通知は90日で最大約1,400件。機能設計書「API共通仕様」B93）で、100人でも1GiBに届かない見込み（目安・実測ではない。読み取り・書き込みの量は要件定義書「3.非機能要件」B12）。
+A23=バックアップ | B23=Firestore の定期バックアップ・ポイントインタイム リカバリ・エクスポートは、有料（Blaze プラン）の機能のため使わない。公開は授業関係者とデモに限り（2026-12-01〜12-24）、登録データは利用者が入力した控えなので、失われたときは入力し直してもらう。12/24 に公開を停止し、データを削除する（要件定義書「3.非機能要件」B8）。
+A24=画面・APIから読まない項目 | B24=次の項目は、画面・API からは読まない（運用・監査用。Firebase のコンソールで見る）：users の uid・createdAt・updatedAt、notificationEvents の updatedAt、webPushSubscriptions の createdAt、cronRuns の errorCode・updatedAt。ほかに、各テーブル定義書の備考に「運用・監査用」と書いた項目（termsAcceptedAt・consentHistory・subscriptionCount・webPushSentAt・webPushLastErrorCode・userAgent・finishedAt）も同じ。
+
+##### シート：4.CRUD図
+A1=データベース設計書
+A3=4. CRUD図（処理 × コレクション）
+A4=C＝作成、R＝読み取り、U＝更新、D＝削除。行は、画面から呼ぶ API・ブラウザから Firebase Authentication への操作・Cron。ID トークンの確認は全 API で行うので、Firebase Authentication の列には書かない。users の R は、初期設定の有無と規約の版の確認（機能設計書「API一覧」の 409）を含む。API の詳細は機能設計書「API一覧」「詳細_F-xx」、項目は「2.テーブル定義書」。
+A6=No. | B6=機能ID | C6=画面 | D6=処理（API・操作） | E6=Firebase Authentication | F6=users | G6=subscriptions | H6=notificationEvents | I6=webPushSubscriptions | J6=cronRuns | K6=備考
+A7=1 | B7=F-01 | C7=S-01 | D7=アカウントの作成（ブラウザ → Firebase Authentication） | E7=C | K7=メールアドレスとパスワードで作る。続けて bootstrap を呼ぶ
+A8=2 | B8=F-01 | C8=S-01・S-13 | D8=POST /api/account/bootstrap（同意・初期設定） | F8=CRU | K8=users が無ければ作る（consentHistory に1件）。版が古ければ版と同意日時を更新
+A9=3 | B9=F-01・F-02・F-12 | C9=S-01・S-09・ログイン後の全画面（同意の確認） | D9=GET /api/account | F9=R | I9=R | K9=webPushSubscriptions は件数と ID の一覧だけを読む
+A10=4 | B10=F-02 | C10=S-02 | D10=ログイン（ブラウザ → Firebase Authentication） | E10=R
+A11=5 | B11=F-02 | C11=S-02・S-09 | D11=パスワード再設定メールの送信（ブラウザ → Firebase Authentication） | E11=U | K11=パスワードは、メールのリンク先（Firebase の画面）で変わる
+A12=6 | B12=F-02・F-06・F-12 | C12=S-09・S-13 | D12=DELETE /api/push/subscribe（ログアウト、この端末の受け取りをオフ） | F12=R | I12=D | K12=users が無ければ409。ブラウザの購読は結果に関係なく解除する。S-01 の「やり直す」表示のログアウトも同じ処理（機能設計書 詳細_F-01 B12）
+A13=7 | B13=F-03・F-04・F-10 | C13=S-04 | D13=GET /api/subscriptions | F13=R | G13=R | K13=最大200件を全件返す。検索・絞り込み・並べ替えは画面で行う
+A14=8 | B14=F-03・F-04 | C14=S-05（編集）・S-06 | D14=GET /api/subscriptions/:id | F14=R | G14=R | K14=他人の ID・無い ID は404
+A15=9 | B15=F-03・F-08・F-10 | C15=S-05（新規） | D15=POST /api/subscriptions | F15=RU | G15=CR | K15=transaction で上限（200件）と同名を確かめ、subscriptionCount を更新
+A16=10 | B16=F-03・F-08 | C16=S-05（編集） | D16=PATCH /api/subscriptions/:id | F16=R | G16=RU | K16=nextBillingDate を計算し直して保存
+A17=11 | B17=F-03 | C17=S-06 | D17=DELETE /api/subscriptions/:id | F17=RU | G17=RD | K17=transaction で削除と subscriptionCount の1減算。通知イベントは残す
+A18=12 | B18=F-04・F-12 | C18=S-03 | D18=GET /api/dashboard | F18=R | G18=R | H18=R | K18=notificationEvents は未読の件数（count()）だけ
+A19=13 | B19=F-05 | C19=S-07 | D19=GET /api/calendar?month=YYYY-MM | F19=R | G19=R
+A20=14 | B20=F-06・F-12 | C20=S-09 | D20=POST /api/push/subscribe（この端末で受け取る） | F20=R | I20=CRUD | K20=同じ endpoint は上書き。別の人の同じ endpoint と、11台目のときの最も古い購読は削除
+A21=15 | B21=F-12 | C21=S-08 | D21=GET /api/notifications | F21=R | G21=R | H21=R | K21=subscriptions は、通知のサブスクが今もあるか（subscriptionExists）の確認だけ
+A22=16 | B22=F-12 | C22=S-08 | D22=POST /api/notifications/:id/read | F22=R | H22=RU | K22=既読を未読に戻さない
+A23=17 | B23=F-12 | C23=S-08 | D23=POST /api/notifications/read-all | F23=R | H23=RU | K23=直近90日の未読を400件ずつ既読にする
+A24=18 | B24=F-12 | C24=S-09 | D24=PATCH /api/account（通知の全体設定） | F24=RU
+A25=19 | B25=F-07 | C25=S-09・S-13 | D25=再認証（ブラウザ → Firebase Authentication） | E25=R | K25=パスワードを入れ直す（削除は auth_time が5分以内のときだけ）
+A26=20 | B26=F-07 | C26=S-09・S-13 | D26=DELETE /api/account | E26=D | F26=D | G26=D | H26=D | I26=D | K26=配下を再帰的に削除 → Auth を削除 → 後片づけ（3.補足設計 B15）。cronRuns は個人情報を持たないので対象外
+A27=21 | B27=F-06（F-08 の通知も作る） | C27=―（Vercel Cron。毎日9時台・11時台・18時台） | D27=GET /api/cron/daily | F27=R | G27=RU | H27=CRUD | I27=RD | J27=CRUD | K27=次回請求日の更新、通知の作成と Push の送信、送信先が404・410の購読の削除、期限（90日）を過ぎた通知と実行記録の削除
+B28=CRUD のそろい | E28=CRUD | F28=CRUD | G28=CRUD | H28=CRUD | I28=CRUD | J28=CRUD | K28=どのコレクションも、作る・読む・変える・消す処理がそろっている（作るだけで消さないデータは無い）
+
+##### シート：5.インデックス定義
+A1=データベース設計書
+A3=5. インデックス定義
+A4=firestore.indexes.json に書くインデックス（GitHub で管理）。Firestore は1つの項目の検索には自動のインデックスを使うが、コレクショングループの検索と、2つの項目を使う検索には定義が要る。単一項目は fieldOverrides に書き、自動のもの（コレクション範囲の昇順・降順）も一緒に書く（書かないと消えるため）。検索の条件の詳しい説明は「3.補足設計」B18。Emulator では確かめられないので、本番にデプロイして確かめる。
+A6=No. | B6=コレクション | C6=範囲 | D6=項目と順序 | E6=種類 | F6=使う処理（検索の条件） | G6=firestore.indexes.json
+A7=1 | B7=notificationEvents | C7=コレクション（users/{uid} の下） | D7=viewedAt 昇順 ＋ createdAt 昇順 | E7=複合 | F7=未読件数（viewedAt が null かつ createdAt が直近90日。count() で集計）と、すべて既読にする（同じ条件） | G7=indexes
+A8=2 | B8=subscriptions | C8=コレクショングループ | D8=nextBillingDate 昇順 | E8=単一項目 | F8=Cron：古くなった次回請求日（nextBillingDate < 今日）、請求の通知候補（nextBillingDate が 今日+1日 か 今日+7日。in の2値） | G8=fieldOverrides
+A9=3 | B9=subscriptions | C9=コレクショングループ | D9=trialEndDate 昇順 | E9=単一項目 | F9=Cron：トライアルの通知候補（trialEndDate が 今日+1日 か 今日+7日。in の2値） | G9=fieldOverrides
+A10=4 | B10=webPushSubscriptions | C10=コレクショングループ | D10=endpoint 昇順 | E10=単一項目 | F10=Push 購読の登録：同じ endpoint を別の人が登録していないか（endpoint == 値。UTF-8 で1499バイト以内） | G10=fieldOverrides
+A11=5 | B11=notificationEvents | C11=コレクショングループ | D11=expireAt 昇順 | E11=単一項目 | F11=Cron の cleanup：期限を過ぎた通知（expireAt <= 現在）を500件ずつ削除 | G11=fieldOverrides（ttl は false）
+A12=6 | B12=cronRuns | C12=コレクション（トップレベル） | D12=expireAt | E12=自動 | F12=Cron の cleanup：期限を過ぎた実行記録（expireAt <= 現在） | G12=書かない（自動のインデックスで足りる）

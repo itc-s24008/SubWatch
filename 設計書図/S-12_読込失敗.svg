@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844">
+<title>プライバシーポリシー画面</title>
+<rect x="0" y="0" width="390" height="844" rx="0" fill="#f5f7fb"/>
+<rect x="0" y="0" width="390" height="64" rx="0" fill="#ffffff"/>
+<rect x="11" y="10" width="67" height="25" rx="8" fill="#eaf1ff"/>
+<text x="20" y="28" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="11" font-weight="650" fill="#2563eb" text-anchor="start">‹ 戻る</text>
+<text x="20" y="50" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="18" font-weight="750" fill="#142033" text-anchor="start">プライバシーポリシー</text>
+<rect x="16" y="82" width="358" height="670" rx="14" fill="#ffffff" stroke="#d9e1ea" stroke-width="1"/>
+<text x="195" y="290" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="15" font-weight="750" fill="#142033" text-anchor="middle">読み込めませんでした</text>
+<text x="195" y="316" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="10" font-weight="400" fill="#637083" text-anchor="middle">ネットワークを確認して再試行してください</text>
+<rect x="106" y="347" width="178" height="44" rx="10" fill="#2563eb"/>
+<text x="195.0" y="373.0" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="12" font-weight="700" fill="#ffffff" text-anchor="middle">再試行</text><circle cx="11" cy="10" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="11" y="13.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">1</text><circle cx="215" cy="43" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="215" y="46.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">2</text><circle cx="366" cy="90" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="366" y="93.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">3</text><circle cx="282" cy="347" r="9" fill="#F97316" stroke="#ffffff" stroke-width="1.5"/><text x="282" y="350.6" font-family="Noto Sans CJK JP, Noto Sans JP, sans-serif" font-size="9.2" font-weight="700" fill="#ffffff" text-anchor="middle">4</text></svg>

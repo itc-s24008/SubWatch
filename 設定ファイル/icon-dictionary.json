@@ -1,0 +1,1255 @@
+{
+ "version": "2026-11-04",
+ "count": 150,
+ "note": "name/aliases は正規化（NFKC・小文字・空白除去）して比べる。アイコンの自動採用は完全一致だけ。S-05 の候補は前方一致・部分一致。domain は favicon.im の入力に使う。取得失敗時は頭文字アイコン。",
+ "services": [
+  {
+   "name": "Netflix",
+   "aliases": [
+    "ネットフリックス"
+   ],
+   "domain": "netflix.com",
+   "category": "video"
+  },
+  {
+   "name": "Amazon Prime Video",
+   "aliases": [
+    "プライムビデオ",
+    "Prime Video"
+   ],
+   "domain": "primevideo.com",
+   "category": "video"
+  },
+  {
+   "name": "Disney+",
+   "aliases": [
+    "ディズニープラス",
+    "Disney Plus"
+   ],
+   "domain": "disneyplus.com",
+   "category": "video"
+  },
+  {
+   "name": "U-NEXT",
+   "aliases": [
+    "ユーネクスト"
+   ],
+   "domain": "video.unext.jp",
+   "category": "video"
+  },
+  {
+   "name": "Hulu",
+   "aliases": [
+    "フールー"
+   ],
+   "domain": "hulu.jp",
+   "category": "video"
+  },
+  {
+   "name": "ABEMA",
+   "aliases": [
+    "アベマ"
+   ],
+   "domain": "abema.tv",
+   "category": "video"
+  },
+  {
+   "name": "YouTube Premium",
+   "aliases": [
+    "ユーチューブプレミアム",
+    "YouTube"
+   ],
+   "domain": "youtube.com",
+   "category": "video"
+  },
+  {
+   "name": "DAZN",
+   "aliases": [
+    "ダゾーン"
+   ],
+   "domain": "dazn.com",
+   "category": "video"
+  },
+  {
+   "name": "dアニメストア",
+   "aliases": [
+    "ディーアニメストア"
+   ],
+   "domain": "animestore.docomo.ne.jp",
+   "category": "video"
+  },
+  {
+   "name": "FOD",
+   "aliases": [
+    "フジテレビオンデマンド"
+   ],
+   "domain": "fod.fujitv.co.jp",
+   "category": "video"
+  },
+  {
+   "name": "TVer",
+   "aliases": [
+    "ティーバー"
+   ],
+   "domain": "tver.jp",
+   "category": "video"
+  },
+  {
+   "name": "Lemino",
+   "aliases": [
+    "レミノ"
+   ],
+   "domain": "lemino.docomo.ne.jp",
+   "category": "video"
+  },
+  {
+   "name": "Apple TV+",
+   "aliases": [
+    "アップルティービー",
+    "Apple TV"
+   ],
+   "domain": "tv.apple.com",
+   "category": "video"
+  },
+  {
+   "name": "Crunchyroll",
+   "aliases": [
+    "クランチロール"
+   ],
+   "domain": "crunchyroll.com",
+   "category": "video"
+  },
+  {
+   "name": "WOWOWオンデマンド",
+   "aliases": [
+    "WOWOW",
+    "ワウワウ"
+   ],
+   "domain": "wowow.co.jp",
+   "category": "video"
+  },
+  {
+   "name": "NHKプラス",
+   "aliases": [
+    "NHK+"
+   ],
+   "domain": "www.nhk.or.jp",
+   "category": "video"
+  },
+  {
+   "name": "ニコニコ動画",
+   "aliases": [
+    "ニコニコプレミアム",
+    "niconico"
+   ],
+   "domain": "nicovideo.jp",
+   "category": "video"
+  },
+  {
+   "name": "DMM TV",
+   "aliases": [
+    "ディーエムエムティーブイ"
+   ],
+   "domain": "tv.dmm.com",
+   "category": "video"
+  },
+  {
+   "name": "楽天TV",
+   "aliases": [
+    "Rakuten TV"
+   ],
+   "domain": "tv.rakuten.co.jp",
+   "category": "video"
+  },
+  {
+   "name": "Twitch",
+   "aliases": [
+    "ツイッチ"
+   ],
+   "domain": "twitch.tv",
+   "category": "video"
+  },
+  {
+   "name": "Spotify",
+   "aliases": [
+    "スポティファイ"
+   ],
+   "domain": "spotify.com",
+   "category": "music"
+  },
+  {
+   "name": "Apple Music",
+   "aliases": [
+    "アップルミュージック"
+   ],
+   "domain": "music.apple.com",
+   "category": "music"
+  },
+  {
+   "name": "YouTube Music",
+   "aliases": [
+    "ユーチューブミュージック"
+   ],
+   "domain": "music.youtube.com",
+   "category": "music"
+  },
+  {
+   "name": "Amazon Music",
+   "aliases": [
+    "アマゾンミュージック",
+    "Amazon Music Unlimited"
+   ],
+   "domain": "music.amazon.co.jp",
+   "category": "music"
+  },
+  {
+   "name": "LINE MUSIC",
+   "aliases": [
+    "ラインミュージック"
+   ],
+   "domain": "music.line.me",
+   "category": "music"
+  },
+  {
+   "name": "AWA",
+   "aliases": [
+    "アワ"
+   ],
+   "domain": "awa.fm",
+   "category": "music"
+  },
+  {
+   "name": "Deezer",
+   "aliases": [
+    "ディーザー"
+   ],
+   "domain": "deezer.com",
+   "category": "music"
+  },
+  {
+   "name": "TIDAL",
+   "aliases": [
+    "タイダル"
+   ],
+   "domain": "tidal.com",
+   "category": "music"
+  },
+  {
+   "name": "SoundCloud",
+   "aliases": [
+    "サウンドクラウド"
+   ],
+   "domain": "soundcloud.com",
+   "category": "music"
+  },
+  {
+   "name": "Audible",
+   "aliases": [
+    "オーディブル"
+   ],
+   "domain": "audible.co.jp",
+   "category": "music"
+  },
+  {
+   "name": "radiko",
+   "aliases": [
+    "ラジコ",
+    "radikoプレミアム"
+   ],
+   "domain": "radiko.jp",
+   "category": "music"
+  },
+  {
+   "name": "楽天ミュージック",
+   "aliases": [
+    "Rakuten Music"
+   ],
+   "domain": "music.rakuten.co.jp",
+   "category": "music"
+  },
+  {
+   "name": "Qobuz",
+   "aliases": [
+    "コバズ"
+   ],
+   "domain": "qobuz.com",
+   "category": "music"
+  },
+  {
+   "name": "Pandora",
+   "aliases": [
+    "パンドラ"
+   ],
+   "domain": "pandora.com",
+   "category": "music"
+  },
+  {
+   "name": "mora",
+   "aliases": [
+    "モーラ",
+    "mora qualitas"
+   ],
+   "domain": "mora.jp",
+   "category": "music"
+  },
+  {
+   "name": "OTOTOY",
+   "aliases": [
+    "オトトイ"
+   ],
+   "domain": "www.ototoy.jp",
+   "category": "music"
+  },
+  {
+   "name": "Bandcamp",
+   "aliases": [
+    "バンドキャンプ"
+   ],
+   "domain": "bandcamp.com",
+   "category": "music"
+  },
+  {
+   "name": "iCloud+",
+   "aliases": [
+    "アイクラウド",
+    "iCloud"
+   ],
+   "domain": "icloud.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Google One",
+   "aliases": [
+    "グーグルワン"
+   ],
+   "domain": "one.google.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Dropbox",
+   "aliases": [
+    "ドロップボックス"
+   ],
+   "domain": "dropbox.com",
+   "category": "cloud"
+  },
+  {
+   "name": "OneDrive",
+   "aliases": [
+    "ワンドライブ"
+   ],
+   "domain": "onedrive.live.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Microsoft 365",
+   "aliases": [
+    "マイクロソフト365",
+    "Office 365"
+   ],
+   "domain": "microsoft365.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Box",
+   "aliases": [
+    "ボックス"
+   ],
+   "domain": "box.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Adobe Creative Cloud",
+   "aliases": [
+    "アドビ",
+    "Adobe",
+    "Creative Cloud",
+    "CC"
+   ],
+   "domain": "adobe.com",
+   "category": "cloud"
+  },
+  {
+   "name": "1Password",
+   "aliases": [
+    "ワンパスワード"
+   ],
+   "domain": "1password.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Bitwarden",
+   "aliases": [
+    "ビットワーデン"
+   ],
+   "domain": "bitwarden.com",
+   "category": "cloud"
+  },
+  {
+   "name": "LastPass",
+   "aliases": [
+    "ラストパス"
+   ],
+   "domain": "lastpass.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Proton",
+   "aliases": [
+    "プロトン",
+    "Proton Mail"
+   ],
+   "domain": "proton.me",
+   "category": "cloud"
+  },
+  {
+   "name": "NordVPN",
+   "aliases": [
+    "ノードVPN"
+   ],
+   "domain": "nordvpn.com",
+   "category": "cloud"
+  },
+  {
+   "name": "ExpressVPN",
+   "aliases": [
+    "エクスプレスVPN"
+   ],
+   "domain": "expressvpn.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Surfshark",
+   "aliases": [
+    "サーフシャーク"
+   ],
+   "domain": "surfshark.com",
+   "category": "cloud"
+  },
+  {
+   "name": "GitHub",
+   "aliases": [
+    "ギットハブ"
+   ],
+   "domain": "github.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Vercel",
+   "aliases": [
+    "バーセル"
+   ],
+   "domain": "vercel.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Backblaze",
+   "aliases": [
+    "バックブレイズ"
+   ],
+   "domain": "backblaze.com",
+   "category": "cloud"
+  },
+  {
+   "name": "pCloud",
+   "aliases": [
+    "ピークラウド"
+   ],
+   "domain": "pcloud.com",
+   "category": "cloud"
+  },
+  {
+   "name": "Duolingo",
+   "aliases": [
+    "デュオリンゴ"
+   ],
+   "domain": "duolingo.com",
+   "category": "learning"
+  },
+  {
+   "name": "Udemy",
+   "aliases": [
+    "ユーデミー"
+   ],
+   "domain": "udemy.com",
+   "category": "learning"
+  },
+  {
+   "name": "Coursera",
+   "aliases": [
+    "コーセラ"
+   ],
+   "domain": "coursera.org",
+   "category": "learning"
+  },
+  {
+   "name": "Schoo",
+   "aliases": [
+    "スクー"
+   ],
+   "domain": "schoo.jp",
+   "category": "learning"
+  },
+  {
+   "name": "スタディサプリ",
+   "aliases": [
+    "Studysapuri"
+   ],
+   "domain": "studysapuri.jp",
+   "category": "learning"
+  },
+  {
+   "name": "DMM英会話",
+   "aliases": [
+    "ディーエムエム英会話"
+   ],
+   "domain": "eikaiwa.dmm.com",
+   "category": "learning"
+  },
+  {
+   "name": "レアジョブ英会話",
+   "aliases": [
+    "レアジョブ",
+    "RareJob"
+   ],
+   "domain": "www.rarejob.com",
+   "category": "learning"
+  },
+  {
+   "name": "Progate",
+   "aliases": [
+    "プロゲート"
+   ],
+   "domain": "progate.com",
+   "category": "learning"
+  },
+  {
+   "name": "ドットインストール",
+   "aliases": [
+    "Dotinstall"
+   ],
+   "domain": "dotinstall.com",
+   "category": "learning"
+  },
+  {
+   "name": "Skillshare",
+   "aliases": [
+    "スキルシェア"
+   ],
+   "domain": "skillshare.com",
+   "category": "learning"
+  },
+  {
+   "name": "LinkedIn Learning",
+   "aliases": [
+    "リンクトインラーニング"
+   ],
+   "domain": "linkedin.com",
+   "category": "learning"
+  },
+  {
+   "name": "Brilliant",
+   "aliases": [
+    "ブリリアント"
+   ],
+   "domain": "brilliant.org",
+   "category": "learning"
+  },
+  {
+   "name": "Babbel",
+   "aliases": [
+    "バベル"
+   ],
+   "domain": "babbel.com",
+   "category": "learning"
+  },
+  {
+   "name": "Rosetta Stone",
+   "aliases": [
+    "ロゼッタストーン"
+   ],
+   "domain": "rosettastone.com",
+   "category": "learning"
+  },
+  {
+   "name": "進研ゼミ",
+   "aliases": [
+    "ベネッセ",
+    "チャレンジ"
+   ],
+   "domain": "benesse.jp",
+   "category": "learning"
+  },
+  {
+   "name": "Z会",
+   "aliases": [
+    "ゼットカイ"
+   ],
+   "domain": "www.zkai.co.jp",
+   "category": "learning"
+  },
+  {
+   "name": "ネイティブキャンプ",
+   "aliases": [
+    "Native Camp"
+   ],
+   "domain": "nativecamp.net",
+   "category": "learning"
+  },
+  {
+   "name": "ChatGPT",
+   "aliases": [
+    "チャットGPT",
+    "OpenAI",
+    "ChatGPT Plus"
+   ],
+   "domain": "chatgpt.com",
+   "category": "ai"
+  },
+  {
+   "name": "Claude",
+   "aliases": [
+    "クロード",
+    "Claude Pro"
+   ],
+   "domain": "claude.ai",
+   "category": "ai"
+  },
+  {
+   "name": "Gemini",
+   "aliases": [
+    "ジェミニ",
+    "Google AI Pro"
+   ],
+   "domain": "gemini.google.com",
+   "category": "ai"
+  },
+  {
+   "name": "Perplexity",
+   "aliases": [
+    "パープレキシティ"
+   ],
+   "domain": "perplexity.ai",
+   "category": "ai"
+  },
+  {
+   "name": "GitHub Copilot",
+   "aliases": [
+    "コパイロット"
+   ],
+   "domain": "github.com",
+   "category": "ai"
+  },
+  {
+   "name": "Cursor",
+   "aliases": [
+    "カーソル"
+   ],
+   "domain": "cursor.com",
+   "category": "ai"
+  },
+  {
+   "name": "Midjourney",
+   "aliases": [
+    "ミッドジャーニー"
+   ],
+   "domain": "midjourney.com",
+   "category": "ai"
+  },
+  {
+   "name": "Microsoft Copilot",
+   "aliases": [
+    "マイクロソフトコパイロット"
+   ],
+   "domain": "copilot.microsoft.com",
+   "category": "ai"
+  },
+  {
+   "name": "Grok",
+   "aliases": [
+    "グロック",
+    "SuperGrok"
+   ],
+   "domain": "grok.com",
+   "category": "ai"
+  },
+  {
+   "name": "DeepL",
+   "aliases": [
+    "ディープエル"
+   ],
+   "domain": "deepl.com",
+   "category": "ai"
+  },
+  {
+   "name": "Grammarly",
+   "aliases": [
+    "グラマリー"
+   ],
+   "domain": "grammarly.com",
+   "category": "ai"
+  },
+  {
+   "name": "Suno",
+   "aliases": [
+    "スノ"
+   ],
+   "domain": "suno.com",
+   "category": "ai"
+  },
+  {
+   "name": "ElevenLabs",
+   "aliases": [
+    "イレブンラボ"
+   ],
+   "domain": "elevenlabs.io",
+   "category": "ai"
+  },
+  {
+   "name": "Runway",
+   "aliases": [
+    "ランウェイ"
+   ],
+   "domain": "runwayml.com",
+   "category": "ai"
+  },
+  {
+   "name": "Poe",
+   "aliases": [
+    "ポー"
+   ],
+   "domain": "poe.com",
+   "category": "ai"
+  },
+  {
+   "name": "Replit",
+   "aliases": [
+    "レプリット"
+   ],
+   "domain": "replit.com",
+   "category": "ai"
+  },
+  {
+   "name": "Windsurf",
+   "aliases": [
+    "ウィンドサーフ"
+   ],
+   "domain": "windsurf.com",
+   "category": "ai"
+  },
+  {
+   "name": "Nintendo Switch Online",
+   "aliases": [
+    "ニンテンドースイッチオンライン",
+    "任天堂"
+   ],
+   "domain": "nintendo.com",
+   "category": "game"
+  },
+  {
+   "name": "PlayStation Plus",
+   "aliases": [
+    "プレイステーションプラス",
+    "PS Plus",
+    "PS+"
+   ],
+   "domain": "playstation.com",
+   "category": "game"
+  },
+  {
+   "name": "Xbox Game Pass",
+   "aliases": [
+    "ゲームパス",
+    "Xbox"
+   ],
+   "domain": "xbox.com",
+   "category": "game"
+  },
+  {
+   "name": "Apple Arcade",
+   "aliases": [
+    "アップルアーケード"
+   ],
+   "domain": "apple.com",
+   "category": "game"
+  },
+  {
+   "name": "Steam",
+   "aliases": [
+    "スチーム"
+   ],
+   "domain": "steampowered.com",
+   "category": "game"
+  },
+  {
+   "name": "Google Play Pass",
+   "aliases": [
+    "プレイパス"
+   ],
+   "domain": "play.google.com",
+   "category": "game"
+  },
+  {
+   "name": "EA Play",
+   "aliases": [
+    "イーエープレイ"
+   ],
+   "domain": "ea.com",
+   "category": "game"
+  },
+  {
+   "name": "Ubisoft+",
+   "aliases": [
+    "ユービーアイソフト"
+   ],
+   "domain": "ubisoft.com",
+   "category": "game"
+  },
+  {
+   "name": "GeForce NOW",
+   "aliases": [
+    "ジーフォースナウ"
+   ],
+   "domain": "nvidia.com",
+   "category": "game"
+  },
+  {
+   "name": "Discord Nitro",
+   "aliases": [
+    "ディスコード",
+    "Discord"
+   ],
+   "domain": "discord.com",
+   "category": "game"
+  },
+  {
+   "name": "Roblox",
+   "aliases": [
+    "ロブロックス"
+   ],
+   "domain": "roblox.com",
+   "category": "game"
+  },
+  {
+   "name": "Fortnite Crew",
+   "aliases": [
+    "フォートナイト",
+    "Fortnite"
+   ],
+   "domain": "fortnite.com",
+   "category": "game"
+  },
+  {
+   "name": "Humble Choice",
+   "aliases": [
+    "ハンブルバンドル",
+    "Humble Bundle"
+   ],
+   "domain": "humblebundle.com",
+   "category": "game"
+  },
+  {
+   "name": "Epic Games",
+   "aliases": [
+    "エピックゲームズ"
+   ],
+   "domain": "epicgames.com",
+   "category": "game"
+  },
+  {
+   "name": "Minecraft",
+   "aliases": [
+    "マインクラフト",
+    "マイクラ"
+   ],
+   "domain": "minecraft.net",
+   "category": "game"
+  },
+  {
+   "name": "ファイナルファンタジーXIV",
+   "aliases": [
+    "FF14",
+    "FFXIV"
+   ],
+   "domain": "finalfantasyxiv.com",
+   "category": "game"
+  },
+  {
+   "name": "Battle.net",
+   "aliases": [
+    "バトルネット",
+    "Blizzard"
+   ],
+   "domain": "battle.net",
+   "category": "game"
+  },
+  {
+   "name": "日本経済新聞",
+   "aliases": [
+    "日経電子版",
+    "日経",
+    "Nikkei"
+   ],
+   "domain": "nikkei.com",
+   "category": "news"
+  },
+  {
+   "name": "朝日新聞デジタル",
+   "aliases": [
+    "朝日新聞",
+    "朝日"
+   ],
+   "domain": "asahi.com",
+   "category": "news"
+  },
+  {
+   "name": "読売新聞オンライン",
+   "aliases": [
+    "読売新聞",
+    "読売"
+   ],
+   "domain": "yomiuri.co.jp",
+   "category": "news"
+  },
+  {
+   "name": "毎日新聞",
+   "aliases": [
+    "毎日"
+   ],
+   "domain": "mainichi.jp",
+   "category": "news"
+  },
+  {
+   "name": "産経新聞",
+   "aliases": [
+    "産経",
+    "産経ニュース"
+   ],
+   "domain": "www.sankei.com",
+   "category": "news"
+  },
+  {
+   "name": "NewsPicks",
+   "aliases": [
+    "ニューズピックス"
+   ],
+   "domain": "newspicks.com",
+   "category": "news"
+  },
+  {
+   "name": "The New York Times",
+   "aliases": [
+    "ニューヨークタイムズ",
+    "NYT"
+   ],
+   "domain": "nytimes.com",
+   "category": "news"
+  },
+  {
+   "name": "The Wall Street Journal",
+   "aliases": [
+    "ウォールストリートジャーナル",
+    "WSJ"
+   ],
+   "domain": "wsj.com",
+   "category": "news"
+  },
+  {
+   "name": "The Washington Post",
+   "aliases": [
+    "ワシントンポスト"
+   ],
+   "domain": "washingtonpost.com",
+   "category": "news"
+  },
+  {
+   "name": "Financial Times",
+   "aliases": [
+    "フィナンシャルタイムズ",
+    "FT"
+   ],
+   "domain": "ft.com",
+   "category": "news"
+  },
+  {
+   "name": "The Economist",
+   "aliases": [
+    "エコノミスト"
+   ],
+   "domain": "economist.com",
+   "category": "news"
+  },
+  {
+   "name": "Bloomberg",
+   "aliases": [
+    "ブルームバーグ"
+   ],
+   "domain": "bloomberg.com",
+   "category": "news"
+  },
+  {
+   "name": "東洋経済オンライン",
+   "aliases": [
+    "東洋経済"
+   ],
+   "domain": "toyokeizai.net",
+   "category": "news"
+  },
+  {
+   "name": "ダイヤモンド・オンライン",
+   "aliases": [
+    "ダイヤモンド"
+   ],
+   "domain": "diamond.jp",
+   "category": "news"
+  },
+  {
+   "name": "Medium",
+   "aliases": [
+    "ミディアム"
+   ],
+   "domain": "medium.com",
+   "category": "news"
+  },
+  {
+   "name": "note",
+   "aliases": [
+    "ノート",
+    "noteプレミアム"
+   ],
+   "domain": "note.com",
+   "category": "news"
+  },
+  {
+   "name": "Substack",
+   "aliases": [
+    "サブスタック"
+   ],
+   "domain": "substack.com",
+   "category": "news"
+  },
+  {
+   "name": "Slack",
+   "aliases": [
+    "スラック"
+   ],
+   "domain": "slack.com",
+   "category": "work"
+  },
+  {
+   "name": "Zoom",
+   "aliases": [
+    "ズーム"
+   ],
+   "domain": "zoom.us",
+   "category": "work"
+  },
+  {
+   "name": "Notion",
+   "aliases": [
+    "ノーション"
+   ],
+   "domain": "notion.so",
+   "category": "work"
+  },
+  {
+   "name": "Evernote",
+   "aliases": [
+    "エバーノート"
+   ],
+   "domain": "evernote.com",
+   "category": "work"
+  },
+  {
+   "name": "Trello",
+   "aliases": [
+    "トレロ"
+   ],
+   "domain": "trello.com",
+   "category": "work"
+  },
+  {
+   "name": "Asana",
+   "aliases": [
+    "アサナ"
+   ],
+   "domain": "asana.com",
+   "category": "work"
+  },
+  {
+   "name": "Canva",
+   "aliases": [
+    "キャンバ"
+   ],
+   "domain": "canva.com",
+   "category": "work"
+  },
+  {
+   "name": "Figma",
+   "aliases": [
+    "フィグマ"
+   ],
+   "domain": "figma.com",
+   "category": "work"
+  },
+  {
+   "name": "Google Workspace",
+   "aliases": [
+    "Gmail",
+    "G Suite",
+    "グーグルワークスペース"
+   ],
+   "domain": "workspace.google.com",
+   "category": "work"
+  },
+  {
+   "name": "Todoist",
+   "aliases": [
+    "トゥドイスト"
+   ],
+   "domain": "todoist.com",
+   "category": "work"
+  },
+  {
+   "name": "Obsidian",
+   "aliases": [
+    "オブシディアン"
+   ],
+   "domain": "obsidian.md",
+   "category": "work"
+  },
+  {
+   "name": "Miro",
+   "aliases": [
+    "ミロ"
+   ],
+   "domain": "miro.com",
+   "category": "work"
+  },
+  {
+   "name": "Airtable",
+   "aliases": [
+    "エアテーブル"
+   ],
+   "domain": "airtable.com",
+   "category": "work"
+  },
+  {
+   "name": "Chatwork",
+   "aliases": [
+    "チャットワーク"
+   ],
+   "domain": "chatwork.com",
+   "category": "work"
+  },
+  {
+   "name": "Zapier",
+   "aliases": [
+    "ザピアー"
+   ],
+   "domain": "zapier.com",
+   "category": "work"
+  },
+  {
+   "name": "Linear",
+   "aliases": [
+    "リニア"
+   ],
+   "domain": "linear.app",
+   "category": "work"
+  },
+  {
+   "name": "マネーフォワード",
+   "aliases": [
+    "Money Forward",
+    "マネフォ"
+   ],
+   "domain": "moneyforward.com",
+   "category": "work"
+  },
+  {
+   "name": "Amazon Prime",
+   "aliases": [
+    "アマゾンプライム",
+    "プライム会員"
+   ],
+   "domain": "amazon.co.jp",
+   "category": "other"
+  },
+  {
+   "name": "Kindle Unlimited",
+   "aliases": [
+    "キンドルアンリミテッド"
+   ],
+   "domain": "amazon.co.jp",
+   "category": "other"
+  },
+  {
+   "name": "Yahoo!プレミアム",
+   "aliases": [
+    "ヤフープレミアム",
+    "LYPプレミアム"
+   ],
+   "domain": "premium.yahoo.co.jp",
+   "category": "other"
+  },
+  {
+   "name": "Uber One",
+   "aliases": [
+    "ウーバーワン",
+    "Uber Eats"
+   ],
+   "domain": "uber.com",
+   "category": "other"
+  },
+  {
+   "name": "食べログ",
+   "aliases": [
+    "Tabelog",
+    "食べログプレミアム"
+   ],
+   "domain": "tabelog.com",
+   "category": "other"
+  },
+  {
+   "name": "Strava",
+   "aliases": [
+    "ストラバ"
+   ],
+   "domain": "strava.com",
+   "category": "other"
+  },
+  {
+   "name": "Calm",
+   "aliases": [
+    "カーム"
+   ],
+   "domain": "calm.com",
+   "category": "other"
+  },
+  {
+   "name": "Headspace",
+   "aliases": [
+    "ヘッドスペース"
+   ],
+   "domain": "headspace.com",
+   "category": "other"
+  },
+  {
+   "name": "Tinder",
+   "aliases": [
+    "ティンダー"
+   ],
+   "domain": "tinder.com",
+   "category": "other"
+  },
+  {
+   "name": "Pairs",
+   "aliases": [
+    "ペアーズ"
+   ],
+   "domain": "pairs.lv",
+   "category": "other"
+  }
+ ]
+}

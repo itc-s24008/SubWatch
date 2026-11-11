@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/.env.local)",
+      "Read(**/.env.production)",
+      "Read(~/secrets/**)",
+      "Read(**/*adminsdk*.json)",
+      "Bash(cat *.env.local*)",
+      "Bash(git push --force*)",
+      "Read(**/.env)",
+      "Read(**/*key*.json)",
+      "Bash(*.env.local*)",
+      "Bash(*.env.production*)",
+      "Bash(*secrets*)",
+      "Bash(*adminsdk*)",
+      "Bash(git push*--force*)",
+      "Bash(git push -f*)",
+      "Bash(git push * -f*)",
+      "Bash(git reset --hard*)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(rm -rf ..*)",
+      "Bash(firebase deploy*)",
+      "Bash(*vercel*--prod*)"
+    ]
+  }
+}

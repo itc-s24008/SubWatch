@@ -1,0 +1,942 @@
+
+##### シート：0.実装構成
+A1=機能設計書　SubWatch（Eチーム）　版：R15（2026-11-07）　0. 実装構成
+A3=【要件定義書との関係】要件定義書は何を作るか、この書類はどう作るかを書く。食い違ったときはこの書類を正とし、直すときは両方を直す。設計書どうしの食い違いは、データ項目はDB設計書、処理はこの書類を正とする。入力項目の表と通知の文面は要件定義書「共通ルール」、画面は画面設計書、データ項目はDB設計書（物理名）を参照する。
+A4=項目 | B4=内容
+A5=技術 | B5=Next.js（App Router）／TypeScript（strict）／Tailwind CSS／firebase（ブラウザはAuthのみ）／firebase-admin／web-push／vitest。全体のつながりは「0-2.システム構成図」。
+A6=環境変数 | B6=NEXT_PUBLIC_FIREBASE_API_KEY／NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN／NEXT_PUBLIC_FIREBASE_PROJECT_ID／NEXT_PUBLIC_FIREBASE_APP_ID／FIREBASE_SERVICE_ACCOUNT_JSON（サービスアカウントキーのJSONをBase64にした文字列・秘密）／NEXT_PUBLIC_VAPID_PUBLIC_KEY／VAPID_PRIVATE_KEY（秘密）／VAPID_SUBJECT（mailto: の連絡先。本番はリーダー〔比嘉〕の学校のメールアドレスを mailto: で入れる。例の dev@example.com は使わない）／CRON_SECRET（秘密）／NEXT_PUBLIC_TERMS_VERSION／NEXT_PUBLIC_PRIVACY_VERSION（公開時は 2026-12-01。Emulatorのテストは 2026-11-04）／ALLOW_CRON_RUNDATE_OVERRIDE（テスト用。本番は設定しない）／SUBSCRIPTION_LIMIT_OVERRIDE（件数上限を小さくして試すテスト用。未設定なら200。本番は設定しない）／NEXT_PUBLIC_USE_AUTH_EMULATOR（テスト専用。ブラウザのAuthをEmulatorへつなぐ。本番は設定しない）／NEXT_PUBLIC_USE_MOCKS（開発用。true のとき、api() が mocks/ の仮データを返す。テストと本番では設定しない）。NEXT_PUBLIC_ で始まる値はビルド時に埋め込まれるため、値を変えたら再デプロイが必要。
+A7=フォルダ構成 | B7=subwatch/ の中の構成。
+app/(auth)/register/page.tsx（S-01）、app/(auth)/login/page.tsx（S-02）
+app/(main)/page.tsx（S-03）、subscriptions/page.tsx（S-04）、subscriptions/new/page.tsx と subscriptions/[id]/edit/page.tsx（S-05）、subscriptions/[id]/page.tsx（S-06）、calendar/page.tsx（S-07）、notifications/page.tsx（S-08）、settings/page.tsx（S-09）
+app/(legal)/terms/page.tsx（S-11。URLは /terms）、app/(legal)/privacy/page.tsx（S-12。URLは /privacy）
+components/settings/：AccountInfo.tsx、NotificationSection.tsx、PushSection.tsx、NotificationTiming.tsx（⑥。04-12）、AccountActions.tsx、LegalLinks.tsx（S-09 の部品）
+components/：ConsentScreen.tsx（S-13）、AuthProvider.tsx、Gates.tsx、BottomNav.tsx、SubscriptionForm.tsx、DeleteAccount.tsx、SubscriptionNotFound.tsx、Dialog.tsx、IconBadge.tsx、LegalPage.tsx、legal-text.tsx、ui.tsx
+app/api/**/route.ts（APIは「API一覧」）
+lib/（サーバー）：firebase-admin.ts、auth.ts（ID token検証）、http.ts（レスポンスとエラー変換）、errors.ts（エラー形式）、validation.ts（入力検証。ブラウザからも使う）、account.ts（アカウント処理）、account-delete.ts（アカウント削除・auth_time確認）、subscriptions.ts（サブスク処理）、dashboard.ts（ホーム・カレンダーの集計）、notifications.ts（通知の判定・ID生成・一覧・既読）、push.ts（web-push送信・購読）、cron.ts（日次Cron）
+lib/（共通）：types.ts（型定義）、billing.ts（請求日・換算の計算）、calendar.ts（月の計算）、clock.ts（日本時間の今日を返す）、format.ts（表示の整形）、terms.ts（規約の版の比較）
+lib/（ブラウザ）：firebase-client.ts、api-client.ts（API呼び出し）、push-client.ts（Pushの購読）、subscription-form.ts（S-05の入力値と検証）、subscription-list.ts（S-04の絞り込み・並べ替え）、subscription-detail.ts（S-06の計算）、use-subscription.ts（1件の読み込み）、flash.ts（画面移動後の表示文）、logout.ts（ログアウトの共通処理と、サーバーを呼ばない後始末）、auth-flow.ts（S-01・S-02 の文と判定。04-05）、account-delete-flow.ts（削除の画面の文と判定。04-17）、icon.ts（ドメイン決定）
+data/icon-dictionary.json（サービス辞書150件）
+public/manifest.webmanifest（中身は「API共通仕様」の Push の行）、public/sw.js（Service Worker・Push受信）、public/icon-192.png、icon-512.png、apple-touch-icon.png
+scripts/：trigger-cron.mjs（Cronの手動実行）、push-demo.mjs（Pushの送信確認）、seed-200.ts（200件のデータ。tsx で動かす）
+vercel.json（subwatch/ の中）。firestore.rules、firestore.indexes.json、firebase.json はリポジトリの直下
+tests/unit、tests/emulator、tests/e2e
+mocks/（仮データ）
+A8=ライブラリの版 | B8=Node.js 22（package.json の engines は "22.x"。Vercel の Node.js Version も 22.x）／next@^15.5／react@^19／typescript@^5.9／tailwindcss@^3.4／firebase@^11／firebase-admin@^13／web-push@^3.6／vitest@^3／@firebase/rules-unit-testing@^4／@playwright/test@~1.64（画面テスト。全員が同じ版。試し実行で動いた版）／tsx@^4（devDependencies。scripts/seed-200.ts を動かす。04-01 で入れる）。react-dom、postcss、autoprefixer、@types/* は next・react・tailwindcss に合う版。動作見本で動いた組み合わせ。
+A9=作業フォルダの配置 | B9=作業フォルダの直下に firebase.json・firestore.rules・firestore.indexes.json・設計書/ などを置き、Next.js のアプリは subwatch/ に作る。subwatch で Emulator のテストを動かすときは、firebase emulators:exec --config ../firebase.json --project demo-subwatch --only auth,firestore "…" のように firebase.json の場所を指定する。ローカルの開発とテストは subwatch/.env.development.local（Emulator 用のダミーの値）だけで動き、本物の鍵はいらない。本物の値は鍵を持つ人の ~/secrets/ の中だけに置き、リポジトリの中（subwatch/.env.local を含む）には置かない（subwatch/.env.local は作らない）。Cron を手で実行するのは金城だけで、値は ~/secrets/cron.env から node --env-file=$HOME/secrets/cron.env scripts/trigger-cron.mjs で読む。lock ファイル（package-lock.json）は残し、版を固定する。
+A10=vercel.json（04-14で配置） | B10={ "crons": [ { "path": "/api/cron/daily", "schedule": "0 0 * * *" }, { "path": "/api/cron/daily", "schedule": "0 2 * * *" }, { "path": "/api/cron/daily", "schedule": "0 9 * * *" } ], "regions": ["hnd1"], "functions": { "app/api/cron/daily/route.ts": { "maxDuration": 300 } } }　（毎日 UTC 0:00（日本時間9:00）・UTC 2:00（日本時間11:00）・UTC 9:00（日本時間18:00）の3回、同じAPIを呼ぶ。2回目と3回目は、前の実行が途中（partial）で止まった・失敗（failed）したときの自動の再実行で、完了済みなら何もしない（noop）。Hobby の cron は、1本ごとに1日1回までしか動かせない（そのため3本を使う。Hobby でも1プロジェクトに100本まで登録できる。18時台は、Firestore の無料枠が戻った後の再実行も兼ねる）。Vercel CronはCRON_SECRETを Authorization: Bearer で自動送信する。functions に書いたルートのファイルが無いとビルドが失敗するおそれがあるため、vercel.json は /api/cron/daily を作る 04-14（11/24）で置く）
+A11=firestore.rules | B11=rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if false; } } }
+A12=firestore.indexes.json | B12=COLLECTION_GROUP範囲の単一項目インデックスを4つ：subscriptions の nextBillingDate、subscriptions の trialEndDate、webPushSubscriptions の endpoint、notificationEvents の expireAt（期限切れの削除用）。単一項目のインデックスは、indexes ではなく fieldOverrides に書く（indexes に書くとデプロイが拒否される）。複合インデックスは1つだけ必要：notificationEvents（コレクション範囲）の viewedAt 昇順＋createdAt 昇順（未読件数の count() 用）。Emulatorはインデックスの有無を確認しないため、本番のFirebaseにデプロイして、Cronの検索・S-03 の未読件数（「すべて既読にする」も同じ条件）・Push 購読の登録が動くことを確認する（インデックスの書き間違いは Emulator のテストでは見つからない）。
+A13=期限切れの削除 | B13=Firestore の TTL 機能は課金（Blaze プラン）が必要なため使わない。Cron の最後の段階（cleanup）で、expireAt が現在以前の通知イベント（collectionGroup）と cronRuns を、それぞれ1回の削除で500件ずつ、1回の実行で最大10回（各種類5,000件）まで削除する。collectionGroup の検索のため、notificationEvents.expireAt に単一項目のコレクショングループ・インデックスが必要（firestore.indexes.json）。
+A14=初期設定の手順 | B14=0. firebase.json の emulators に auth（ポート9099）と firestore（8080）を書く。1. Firebaseプロジェクトを作り、Authenticationでメール/パスワードを有効にし、「パスワード ポリシー」で最小8文字を必須（Require）にする（無料のプランで設定できないときは、S-01 の確認だけで8文字にし、再設定の画面〔Firebase の画面〕は既定のまま。11/12 の 04-03 で確かめる）。メール列挙保護は既定のまま有効にする（ログイン・再認証の失敗は auth/invalid-credential になる）。2. Firestoreを作成し、rulesとindexesをデプロイする（反映は 11/18 の 04-07 の最初に金城が行う。10分）。3. サービスアカウントキーを発行してBase64にし、FIREBASE_SERVICE_ACCOUNT_JSON に設定する。4. npx --yes web-push@3.6 generate-vapid-keys でVAPID鍵を作る（手順書 03 の 6）。5. Vercel のプロジェクトの作成と初回デプロイは 11/17 の2限に行う（04-02。11/12 に作成の準備。04-01 の段階1〜2 が遅れたら3限）。鍵は、鍵を持つ人のパソコンで、呉屋がシークレットウィンドウで Vercel にログインし、鍵を持つ人が貼る（終わったらログアウト）。環境変数は、04-02 で Firebase の公開してよい値と規約の版（2026-12-01。呉屋が自分のパソコンで入れる。サービスアカウントの鍵だけ比嘉のパソコンで貼り、その画面で呉屋が作った Deploy Hook を比嘉が ~/secrets/deploy-hook.txt に写す〔叩いて確かめるのは 11/18〕。呉屋は自分のパソコンで Redeploy する）、04-12 で VAPID の鍵（11/19 の4限の最後の15分に比嘉のパソコンで貼る）と VAPID_SUBJECT（本番はリーダー〔比嘉〕の学校のメールアドレス。mailto:）、CRON_SECRET は 04-14 で金城が作り、11/24 の4限の最後の15分に金城のパソコンで貼る（Cron の設定は 11/25 の 04-16 で反映し、11/26 の朝から毎日動く）。正式な公開は 12/1（04-23）。6. firebase deploy --only firestore:indexes でインデックスを反映する。
+Vercel：Root Directory は subwatch、Function Region は Tokyo（hnd1。vercel.json の regions でも指定）、Fluid compute を有効にする（maxDuration 300 は Fluid compute が有効なときだけ使える。無効だと60秒で止まる）。
+A15=共通のAPI形式 | B15=成功：{ "data": …, "error": null, "requestId": "…" }　失敗：{ "data": null, "error": { "code": "…", "message": "…" }, "requestId": "…" }（204だけボディなし）。Cron以外のAPIはすべて Authorization: Bearer <Firebase ID token> が必須で、uidはtokenから取り出す。未知のフィールドは400 UNKNOWN_FIELD。他人のIDは404。
+A16=開発の進め方 | B16=機能ごとに担当を分け、各自がAIを使って担当機能を作成し、チームで統合する。
+契約はこの書類の「API一覧」「型定義」。各自はこれに合わせて作り、相手の機能が未完成の間は仮データ（モック）で進める。仮データの置き場は mocks/。
+共通ファイル（型定義・共通部品・APIの共通処理）を変えるときは金城に相談し、別の Pull Request で先に入れる。
+ブランチは機能ごとに作り、Pull Request で main へ入れる。Pull Request にはAI生成の記録欄（どこをAIで作り、何を直したか）を設ける。
+副担当が Pull Request を読み、5分の口頭確認（画面→API→DBの流れ、失敗時の動き、テストが守るもの）をして、確認者を記録する。異常系のテストは統合日には足さず、12/1 のテスト仕様書に機能ごとのケースを金城が全機能分足し、12/2 に各機能のテスト担当が読んで実施する（自動テストのコードは 12/3〜12/9 のバグ修正で足す）。
+統合日（11/19・11/25・12/1）は全員で午前に統合し（1日4コマのうち2コマ）、午後に各自のタスクを行う。まとめ役は交代：統合① 金城（代行 比嘉）、α版 呉屋（代行 金城）、全機能 比嘉（代行 呉屋）。
+11/26 は予定のタスク（04-19・04-21 と、04-20 の予備）の日で、予定に無い Must の作業は 11/26 の予備以外には足さない（Want の F-13 は 12/8 の予備が空いたときだけ作り、F-10 の検索・並べ替えは 11/26 の予備が空いたときに作る）。12/1 の12時の判断は決まりの一覧 B-3 のとおり（本番に出せなければ公開を 12/3 に延ばす。未統合の Pull Request があれば13時まで待ち、入らない機能は公開から外して予備で仕上げる）。
+動作見本（Work/app-src。プロンプトと設計書だけで AI が作れるかを試すために作ったもの）は提出物ではなく、比嘉のパソコンにだけ置き、チームのリポジトリに入れない（配らない）。見てよいのは自分の Pull Request を出した後だけで、比嘉と一緒に見る。
+A17=用語 | B17=transaction：複数の読み書きを、全部成功か全部取り消しのどちらかにするFirestoreの仕組み。
+決定的ID：同じ材料（uid・サブスク・種類・日数・送信日）から、いつでも同じIDを計算する方法。同じ通知は2件作られない。
+sha256：文字列から固定の長さの値を計算する方法。決定的IDに使う。
+冪等：同じ処理を2回実行しても結果が変わらないこと。
+collectionGroup：同じ名前のコレクションを全ユーザー分まとめて検索するFirestoreの機能。インデックスが必要。
+count()：ドキュメントを読まずに件数だけを数えるFirestoreの機能。
+HTTP 204：「成功したが、返す内容は無い」という応答の番号。
+auth_time：ID tokenに入っている、最後にパスワードで本人確認した時刻。
+checkRevoked：ID tokenの検証で、削除・無効化されたアカウントかまで確かめる指定。
+VAPID：Pushを送るサーバーを証明する鍵の組。
+Service Worker：画面を閉じていてもPushを受け取るためにブラウザの中で動くプログラム。
+gRPCコード：FirestoreのSDKが返すエラーの番号。
+TTL：Firestoreが期限切れのデータを自動で消す機能。課金が必要なため使わない。
+refresh_stale：Cronの最初の段階。古くなった次回請求日を計算し直す。
+cleanup：Cronの最後の段階。期限切れの通知とCronの記録を削除する。
+recursiveDelete：ドキュメントを配下ごと消す Admin SDK の機能。
+基準日：テストで「今日」とみなす日。
+A18=実装の注意 | B18=次は動作見本で確かめた内容（環境や版によって変わることがある）。
+・typescript は 5系を使う（7系は Next 15.5 のビルドが失敗した）。
+・Next 15 では route handler の第2引数 params は Promise（await して使う）。各route.tsに export const runtime = 'nodejs'; export const dynamic = 'force-dynamic'; を書く。
+・route.ts からは、HTTPメソッドの関数と route segment config（runtime・dynamic・maxDuration など）以外を export しない（Nextのビルドが失敗する）。
+・並行して複数のEmulatorを動かすときは、ポートを変えた firebase 設定ファイルを別に用意してよい。
+・削除を伴うテストでは、偽の時刻（Dateの差し替え）を使わない（recursiveDelete が止まる）。
+・Auth Emulator は checkRevoked=false でも常に失効を確認するため、『通常のAPIは失効を確認しない』ことはEmulatorでは確かめられない（bootstrapの失効→401は確かめられる）。
+・Auth Emulator は、アカウント作成より前の auth_time を失効（401）として扱う。本番の Firebase で auth_time の5分判定がどう動くかは、実際の環境で確かめる。
+・試し実行の3回目（11/06。設計書は R12 の版）の後に R13〜R15 で足した仕様（S-13 からのアカウント削除、401 と 503 の分け方、削除の応答が届かないときの扱い、consentHistory、30秒の時間切れ、navigator.onLine の判定、S-01 のやり直しの画面、seed-200.ts、テスト No.65〜75 など）は、AI で作って動かしていない（未検証）。
+A19=変更履歴 | B19=2026-10-21　v1 提出。
+2026-10-28　次回請求日を、請求日から自動で計算する方式に変更。メール通知・F-09・F-11を対象外に変更。
+2026-11-04　Firestoreはブラウザから直接読み書きせず、すべてサーバーAPIで行う形に変更。アカウント削除を即時完了に変更。Cronの途中再開を、11時にもう一度動かす形に変更。F-13（favicon.im＋辞書）を追加。
+2026-11-05　R12：開発方式（各自がAIで担当機能を作り、統合日に統合）に変更。処理の詳細をこの書類にまとめた。
+2026-11-06　R12：AIで全機能を通しで作り直して確かめ、設計書に書いていなかった所を4冊に反映した。テスト一覧にNo.63・64を追加、アカウント削除の後片づけ、Cronの通知の作成を users を読む transaction に入れる、フローチャート（F-06・F-07）の更新、など。ファイル名を「_R12」にそろえた。
+2026-11-06　R13：統合日ごとの削る候補、S-13 からのアカウント削除の画面・遷移・関連機能、後片づけが失敗したときの運用の手順、ログアウトでは必ずブラウザの購読を解除する、Cron の締切の書き方、テストの前提（No.17・20・49・62）を直した。この改訂は授業外で行った。
+2026-11-07　R13（追記）：S-13 からのアカウント削除を詳細_F-07・API共通仕様・横断仕様につなげた。Auth の一時障害は503（サインアウトしない）。F-04・F-12 の関連画面に S-06。α版の Cron のデモの扱い、テスト No.37 の作り方を書いた。
+2026-11-07　R13（追記2）：401 と 503 の分け方（verifyIdToken のエラーごと）とテスト、S-13 の削除リンクは常に表示、無料枠を超えたときは当日中の再開を期待しない、型定義に一覧・Push購読・Cron の応答、関連 ID と API 列の漏れ、Push から開いても既読にしない、を直した。
+2026-11-07　R13（追記3）：型定義に残りの応答の型と userAgent の null、画面テストは mockApi でサーバーの値を固定、bootstrap の失敗の扱い（401/409/503/その他）、S-09 のスイッチの失敗の文、503 と無料枠超過の区別、S-13 の削除リンクは常に表示の書き方をそろえた、テストの差し替え口、テストの期待値（No.3・10・46）、read-all の上限、F-04・F-07 の副担当、関連 API の漏れを直した。
+2026-11-07　R14：「決まりの一覧」（docs/決まりの一覧.md）を作り、全書類をそれに合わせた。遅れた Must は 12/1 の予備（1件・順番を決めた。取り消し：R15 で 11/24 の予備を足した）、11/24 の意味、11/10 の初回デプロイと鍵の入力、ゲートが反応するエラーと S-09 のスイッチの文、bootstrap の失敗の扱い（S-01 の再試行は bootstrap だけ）、削除の再試行で user-not-found は削除済み（取り消し：R15 で、応答が届かないときはサインアウトして案内する形に変更）、購読が無い端末ではログアウトで DELETE を呼ばない、Push の画面テスト、F-13 の副担当。
+A20=変更履歴（続き） | B20=2026-11-07　R15：F-10 の検索・並べ替えを Want にし、11/24 の予備を足した。削除の応答が届かないときはサインアウトして案内する（user-not-found で判定する R14 の形は取り消し）。メール列挙保護は有効のまま。onApiGate と Gates の書き分け、S-01・S-13 の 401、S-09 のスイッチのゲートのとき、テスト（No.4・17・38・58・63）、名前を姓に、ログアウトで購読が無い端末は DELETE を呼ばない（DB）。
+2026-11-07　R15（11/07 の直し）：決まりの一覧の項目ごとに、言い回しに関係なく全書類を読み直して食い違いを直した。11/11 の確認は呉屋がまとめて行う。削除の時間切れは30秒、S-01 の再試行の画面、S-09 ④をオフにする順番、bootstrap の 409 で onApiGate を呼ばない、を書いた。
+2026-11-08　R15（11/08 の直し）：「0-2.システム構成図」を足した。F-07 の再認証、F-12 が subscriptions を読むこと、S-01 のやり直しの表示のログアウト、API共通仕様の message の例外、DeleteAccountBody の型、テスト（No.11・20・51・52・67 の確認を足した）、未検証の範囲（R13〜R15）を直した。
+2026-11-09　R15（11/09 の直し。現在の版。2回目の精査と試し実行4回目の後の直しを含む）：Web Push の購読（04-12）も Should に（F-06・F-12 の優先度、詳細_F-12 の手順6）。パスワードは8文字以上で、Firebase のパスワード ポリシーで最小8文字を必須にする（0.実装構成 B14、詳細_F-01）。試し実行4回目の後：初期設定の失敗の分け方（詳細_F-01）、ログインの後に読むのは Gates（詳細_F-02）、削除の status 0・オフラインの文の位置・auth_time の単位（詳細_F-07・API共通仕様）、ログアウトで Push の DELETE を待つのは2.5秒、Push の細部（API共通仕様）、lib の一覧と @playwright/test の版（0.実装構成）。3回目の精査（11/09。補足15）：Push 購読は登録の前に9件まで掃除・GET /api/account は全部返す、削除・サブスクの transaction の明記、締切は lib/cron.ts、削除の成功はサインアウト、S-08 の既読の文（B108）、型定義に ConsentRecord と保存の形の型名、フロー図2枚。4回目の精査（11/10。補足18）：解約案内の今日は画面側、S-03 のバッジ、通知の文面のテスト（No.20・67）、No.62 の測る範囲、api() の ID token と時間切れ、S-09 の404、本番で確かめるインデックス。仕様の追加（作成者の指示）：トライアルの解約案内、S-06 の注意書きの1文、S-02 のログイン前の購読解除、refresh_stale の前提条件。補足19（11/10）：日程を授業日2日ぶん後ろへずらした（統合日 11/19・11/25・12/1、公開 12/1、テスト 12/2、凍結 12/9。規約の版は 2026-12-01）。補足21（11/10）：Cron を3本にした（vercel.json に UTC 9:00＝日本時間18時台を足した。無料枠が戻った後の再実行を兼ねる）。
+（全書類の変更の詳細は docs/変更履歴.md）
+
+##### シート：0-2.システム構成図
+A1=0-2. システム構成図
+A2=「0.実装構成」の技術・環境変数・vercel.json・firestore.rules を、つながりの図にしたもの。データの読み書きはすべて API（Admin SDK）が行い、ブラウザは Firestore を直接読み書きしない。
+
+##### シート：1.機能一覧
+A1=1. 機能一覧
+A3=機能ID | B3=機能名 | C3=優先度 | D3=担当 | E3=実装の段階 | F3=API | G3=画面 | H3=データ
+A4=F-01 | B4=ユーザー登録機能 | C4=Must | D4=主：比嘉　副：金城（S-11・S-12・S-13 の画面は 04-19〔呉屋〕） | E4=段階1（S-11・S-12は仮。本文とS-13は段階4） | F4=POST /api/account/bootstrap, GET /api/account | G4=S-01・S-11・S-12・S-13 | H4=Firebase Authentication、users/{uid}
+A5=F-02 | B5=ログイン・ログアウト・パスワード再設定機能 | C5=Must | D5=主：比嘉　副：金城 | E5=段階1 | F5=GET /api/account, DELETE /api/push/subscribe（ログアウト時） | G5=S-02・S-09・S-13 | H5=Firebase Authentication、users/{uid}、users/{uid}/webPushSubscriptions
+A6=F-03 | B6=サブスク登録・編集・削除機能 | C6=Must | D6=主：呉屋（S-05・S-06 の画面）・金城（API・請求日）　副：比嘉（S-05・S-06 の画面）・呉屋（API・請求日）／S-04 の画面は 04-09（比嘉） | E6=段階1（S-06の完成は段階4） | F6=GET/POST /api/subscriptions, GET/PATCH/DELETE /api/subscriptions/:id | G6=S-04（画面は 04-09〔比嘉〕）・S-05・S-06 | H6=users/{uid}/subscriptions/{subscriptionId}、users/{uid}.subscriptionCount
+A7=F-04 | B7=請求予定・料金換算表示機能 | C7=Must | D7=主：比嘉　副：金城 | E7=段階2 | F7=GET /api/dashboard, GET /api/subscriptions, GET /api/subscriptions/:id（S-06 の換算額） | G7=S-03・S-04・S-06 | H7=users/{uid}（同意の確認）、users/{uid}/subscriptions（読み取りのみ）、users/{uid}/notificationEvents（未読の集計）
+A8=F-05 | B8=請求カレンダー機能 | C8=Should（遅れたら最初に削る。削ったら一覧の次回請求日で代え、下部ナビの「カレンダー」は出さず、/calendar は S-04 へ replace する） | D8=主：呉屋　副：金城 | E8=段階2 | F8=GET /api/calendar?month=YYYY-MM | G8=S-07 | H8=users/{uid}（同意の確認）、users/{uid}/subscriptions（読み取りのみ）
+A9=F-06 | B9=アプリ内通知・Web Push機能（請求前通知） | C9=Must（アプリ内通知・Cron）／Should（Web Push の購読〔04-12〕と送信〔04-15〕。一緒に削る） | D9=主：比嘉（Push）・金城（Cron）　副：呉屋（Push）・比嘉（Cron） | E9=段階3 | F9=GET /api/cron/daily, POST/DELETE /api/push/subscribe | G9=S-08・S-09 | H9=users/{uid}（読み取り）、users/{uid}/subscriptions（検索と nextBillingDate の更新）、users/{uid}/notificationEvents、users/{uid}/webPushSubscriptions、cronRuns/{runDate}
+A10=F-07 | B10=アカウント削除機能 | C10=Must | D10=主：金城　副：比嘉 | E10=段階4 | F10=DELETE /api/account | G10=S-09・S-13 | H10=users/{uid} 配下すべて、Firebase Authentication
+A11=F-08 | B11=無料トライアル日付管理機能 | C11=Must | D11=主：金城（通知）・呉屋（入力）　副：比嘉 | E11=段階3 | F11=POST /api/subscriptions、PATCH /api/subscriptions/:id（trialEnabled, trialEndDate） | G11=S-05・S-06・S-08 | H11=subscriptions.trialEnabled, trialEndDate、notificationEvents（trial_end）
+A12=F-09 | B12=料金・プラン履歴機能 | C12=MVP後（将来） | D12=― | E12=― | F12=なし | G12=S-10 | H12=なし
+A13=F-10 | B13=カテゴリー検索・重複確認機能 | C13=Must（カテゴリー・重複の警告）／Want（検索・並べ替え。S-04 の既定の並びは Must で、04-09〔F-04。比嘉〕が作る） | D13=主：金城（検索・並べ替え）・呉屋（重複の警告）　副：呉屋（検索・並べ替え）・比嘉（重複の警告） | E13=段階1（同名警告）・11/26 の予備が空いたとき（検索・並べ替え。Want） | F13=GET /api/subscriptions, POST /api/subscriptions（confirmDuplicate） | G13=S-04・S-05 | H13=subscriptions.category, serviceName
+A14=F-11 | B14=（欠番・廃止） | C14=廃止 | D14=― | E14=― | F14=なし | G14=― | H14=なし
+A15=F-12 | B15=通知履歴・設定機能 | C15=Must（通知の履歴・既読・オン・オフ）／Should（この端末での Push の受け取り〔04-12〕） | D15=主：比嘉　副：金城 | E15=段階3 | F15=GET /api/notifications, POST /api/notifications/:id/read, POST /api/notifications/read-all, GET/PATCH /api/account, POST/DELETE /api/push/subscribe, GET /api/dashboard（S-03 の未読数） | G15=S-03・S-06・S-08・S-09 | H15=notificationEvents、users.accountNotificationEnabled、webPushSubscriptions、subscriptions（通知のサブスクが今もあるかを読むだけ）
+A16=F-13 | B16=サービスアイコン自動表示機能 | C16=Want | D16=主：金城　副：比嘉 | E16=段階5（12/8 の予備が空いたときだけ） | F16=なし（ブラウザのみ） | G16=S-03・S-04・S-05・S-06 | H16=なし（subscriptions.websiteUrl とサービス名から表示のたびに計算。保存しない）
+
+##### シート：API一覧
+A1=API一覧と共通のエラー
+A3=No. | B3=メソッド | C3=パス | D3=リクエスト → レスポンス | E3=動作・備考 | F3=担当（WBS）
+A4=1 | B4=POST | C4=/api/account/bootstrap | D4={termsAccepted:true, privacyAccepted:true, termsVersion, privacyVersion} → {uid, initialized:true} | E4=版が環境変数と一致しなければ409 TERMS_RECONSENT_REQUIRED。users/{uid}が無ければ作成、版が古ければ版と同意日時を更新、同じなら何もしない。作成・更新のときは consentHistory に1件足す（最大20件）。応答の {uid, initialized} は画面では使わない（テストで使う）。 | F4=比嘉 04-05
+A5=2 | B5=GET | C5=/api/account | D5=→ {email, accountNotificationEnabled, termsVersion, privacyVersion, pushSubscriptionCount, pushSubscriptionIds} | E5=users/{uid}が無ければ404 NOT_FOUND（Gates が読んだときは同意の確認画面を出す。S-09 が自分で読んだときの404は「読めなかった」と同じ扱い。S-01 を開いたときは「初期設定をやり直す」の表示。詳細_F-01 の手順7）。pushSubscriptionIds は、この利用者の Push 購読のID（webPushId＝sha256(endpoint)）の一覧（読んだ全部。ふつうは最大10件、まれに11件）。S-09 の⑤が、この端末の購読がサーバーにあるかの確認に使う。pushSubscriptionCount は画面では使わない（テストと運用〔問い合わせの調査〕で使う）。 | F5=比嘉 04-05
+A6=3 | B6=PATCH | C6=/api/account | D6={accountNotificationEnabled:boolean} → 同じ値 | E6=全体の通知のオン・オフ。 | F6=比嘉 04-21
+A7=4 | B7=DELETE | C7=/api/account | D7={confirmation:'DELETE'} → 200 {status:'deleted'} | E7=auth_timeが5分以内（古ければ401 REAUTH_REQUIRED）。users/{uid}を再帰削除（usersが無くても進む）→Authユーザー削除→もう一度再帰削除（後片づけ。3回とも失敗したらログに code だけを出して成功を返す）。失敗は500 DELETE_FAILED（再実行で完了）。成功後の再送は401（Authユーザーが無いため）。 | F7=金城 04-17
+A8=5 | B8=GET | C8=/api/subscriptions | D8=→ {items:[サブスク（nextBillingDate付き）], totalCount} | E8=最大200件を全件返す（ページングなし）。並びは作成日時の昇順（S-04 の画面〔04-09。F-04。比嘉〕が、これを次回請求日の近い順に並べ直す。詳細_F-03 の1）。nextBillingDateは、保存値ではなく、その時点の請求日と周期から毎回計算した値を返す（保存値はCronの検索用）。totalCount は items の件数と同じ値（検索・絞り込みは画面で行うので、いつも全件の数）。totalCount は画面では使わない（テストで items の件数との一致を確かめる）。 | F8=金城 04-07
+A9=6 | B9=GET | C9=/api/subscriptions/:id | D9=→ {subscription} | E9=他人のID・存在しないIDは404。 | F9=金城 04-07
+A10=7 | B10=POST | C10=/api/subscriptions | D10=許可：serviceName, planName, price, billingCycle, firstBillingDate, billingDayMode, category, trialEnabled, trialEndDate, websiteUrl, cancelUrl, paymentMethod, memo, subscriptionNotificationEnabled, confirmDuplicate。必須：serviceName, price, billingCycle, firstBillingDate, billingDayMode, category → 201 {subscription} | E10=同名があり confirmDuplicate が true でなければ409 DUPLICATE_CANDIDATE {candidates:[{subscriptionId, serviceName}]}。200件で409 SUBSCRIPTION_LIMIT_REACHED。nextBillingDateは受け付けずサーバーが計算（送られたら400 UNKNOWN_FIELD）。categoryは必須（省略は400）。同名確認・件数の確認・保存は、users/{uid} を読む同じ transaction で行う（API共通仕様 B62）。 | F10=金城 04-07
+A11=8 | B11=PATCH | C11=/api/subscriptions/:id | D11=POSTと同じ許可項目（confirmDuplicate以外）の一部 → {subscription} | E11=空のオブジェクトは400。変更後にnextBillingDateを再計算。 | F11=金城 04-07
+A12=9 | B12=DELETE | C12=/api/subscriptions/:id | D12=→ 204 | E12=transaction で users/{uid} を読み、サブスクを読み直して（すでに無ければ404）、削除と subscriptionCount-1 を行う（API共通仕様 B62）。通知履歴は残す。 | F12=金城 04-07
+A13=10 | B13=GET | C13=/api/dashboard | D13=→ {weekTotal:{count,amountJPY}, monthTotal:{count,amountJPY}, monthlyEquivalentJPY, yearlyEquivalentJPY, subscriptionCount, unreadCount, nextBills:[{subscriptionId, serviceName, websiteUrl, date, priceJPY, daysLeft}]} | E13=nextBillsは今日から7日以内（今日と7日後を含む）を日付昇順で最大5件。subscriptionCount は読み取った実件数。websiteUrl はS-03のアイコンに使う。 | F13=比嘉 04-09
+A14=11 | B14=GET | C14=/api/calendar?month=YYYY-MM | D14=→ {month, days:[{date, items:[{subscriptionId, serviceName, priceJPY}]}], monthTotalJPY} | E14=請求日を請求日と周期から計算。 | F14=呉屋 04-13
+A15=12 | B15=POST | C15=/api/push/subscribe | D15={endpoint, keys:{p256dh, auth}, userAgent?} → {enabled:true} | E15=webPushId=sha256(endpoint)。他のuidに同じendpointがあればその購読を削除してから登録。同じendpointは上書き。保存までは users/{uid} を読む1つの transaction で行う（API共通仕様 B23）。 | F15=比嘉 04-12
+A16=13 | B16=DELETE | C16=/api/push/subscribe | D16={endpoint} → 204 | E16=この端末の購読だけ解除。規約の版は調べない（版が古い人もログアウト時に解除できる）。対象が無くても204（ただし users が無いときは409 ACCOUNT_NOT_INITIALIZED。DB設計書 3.補足設計 B16。ログアウトの画面は、それも解除の失敗として扱い、ブラウザの購読を解除してログアウトを続ける）。ログアウト時にも呼ぶ。 | F16=比嘉 04-12
+A17=14 | B17=GET | C17=/api/notifications | D17=?filter=all|unread|billing|trial_end（省略は all）&limit=1..50（既定20）&cursor= → {items（各通知にsubscriptionExistsを含む）, nextCursor, unreadCount} | E17=直近90日、作成日時の降順。cursorは「作成日時ミリ秒_通知ID」（不正なら400）。未知のfilterは400。各通知の webPushStatus・targetDate・daysBefore・priceAtNotification は画面では使わない（テストと運用〔Push が届かない問い合わせの調査〕で使う）。 | F17=比嘉 04-21
+A18=15 | B18=POST | C18=/api/notifications/:id/read | D18=（本文なし）→ {viewedAt} | E18=既読の巻き戻しなし。 | F18=比嘉 04-21
+A19=16 | B19=POST | C19=/api/notifications/read-all | D19=（本文なし）→ {updatedCount} | E19=直近90日の未読を400件ずつ既読にする。 | F19=比嘉 04-21
+A20=17 | B20=GET | C20=/api/cron/daily | D20=Authorization: Bearer CRON_SECRET → 200 {status:'completed'|'partial'|'noop', createdCount, sentCount, failedCount} | E20=日次の通知処理（F-06）。ALLOW_CRON_RUNDATE_OVERRIDE=true のときだけ ?runDate=YYYY-MM-DD で日付を指定できる（テスト用）。 | F20=金城 04-14
+A22=エラーコード
+A23=HTTP | B23=コード | C23=意味・画面の扱い
+A24=400 | B24=VALIDATION_ERROR / UNKNOWN_FIELD / INVALID_DATE / CARD_LIKE_VALUE | C24=入力の誤り。項目の下に表示
+A25=401 | B25=UNAUTHENTICATED | C25=S-02へ移動
+A26=401 | B26=REAUTH_REQUIRED | C26=パスワードの再入力
+A27=401 | B27=INVALID_CRON_SECRET | C27=Cronの認証エラー
+A28=404 | B28=NOT_FOUND | C28=対象が無い、または他人のもの
+A29=409 | B29=CONFLICT | C29=競合（FirestoreのABORTED・ALREADY_EXISTS）。もう一度試す
+A30=409 | B30=ACCOUNT_NOT_INITIALIZED | C30=users/{uid}が無い（bootstrap未実施）。bootstrap・GET /api/account・DELETE /api/account・Cron 以外のすべてのAPI（PATCH /api/account を含む）が返す。画面は（bootstrap以外）同意の確認画面（S-13）へ切り替える（Gates は (auth) の画面〔S-01・S-02〕では判定しない。API共通仕様 B71）
+A31=409 | B31=DUPLICATE_CANDIDATE | C31=同名の警告ダイアログ
+A32=409 | B32=SUBSCRIPTION_LIMIT_REACHED | C32=200件の上限
+A33=409 | B33=TERMS_RECONSENT_REQUIRED | C33=規約・ポリシーの版が古い（bootstrap・GET /api/account・DELETE /api/account・DELETE /api/push/subscribe・Cron は保存済みの版を調べない。bootstrap は、送られた版が現行と違うときにこの409を返す）。画面は同意の確認画面（S-13）を出す（bootstrap の409 は onApiGate を呼ばず、S-01・S-13 が自分で扱う）
+A34=409 | B34=CRON_ALREADY_RUNNING | C34=Cronの二重起動
+A35=500 | B35=INTERNAL_ERROR / DELETE_FAILED | C35=もう一度試す案内
+A36=500 | B36=RESOURCE_EXHAUSTED | C36=Firestore無料枠の超過。「一時的に利用できません。時間をおいて再試行してください」
+A37=503 | B37=TEMPORARILY_UNAVAILABLE | C37=一時的な障害（Firestore の UNAVAILABLE、Auth への問い合わせの失敗）。無料枠の超過は500 RESOURCE_EXHAUSTED で、503 ではない
+
+##### シート：詳細_F-01
+A1=F-01　ユーザー登録機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-01
+A5=優先度・段階 | B5=Must／段階1
+A6=担当 | B6=主：比嘉　副：金城（S-11・S-12・S-13 の画面は 04-19〔呉屋〕）
+A7=実行する場所 | B7=ブラウザ → Firebase Authentication、ブラウザ → サーバー
+A8=関連画面 | B8=S-01・S-11・S-12・S-13
+A9=API | B9=POST /api/account/bootstrap, GET /api/account
+A10=読み書きするデータ | B10=Firebase Authentication、users/{uid}
+A11=入力・参照 | B11=・メールアドレス（メール形式。入力欄の type="email" と Firebase の判定に任せる）
+・パスワード（8文字以上）と確認用のパスワード
+・利用規約への同意（チェック必須）
+・プライバシーポリシーへの同意（チェック必須）
+A12=処理手順（1行に1手順） | B12=1. S-01で、メール形式・パスワード8文字以上・確認用パスワードの一致を調べる。足りなければ入力欄の下に赤字で表示して終了する。同意チェック2つがそろうまで［アカウントを作成］は押せない。
+2. ブラウザからFirebase Authenticationにユーザーを作成する。
+3. ID tokenを付けて POST /api/account/bootstrap を呼ぶ（同意2つ・規約の版・プライバシーの版を送る。パスワードは送らない）。
+4. サーバーはID tokenを確認してuidを取り出し、送られた版が環境変数 NEXT_PUBLIC_TERMS_VERSION / NEXT_PUBLIC_PRIVACY_VERSION と一致するか確認する。一致しなければ409 TERMS_RECONSENT_REQUIRED。
+5. users/{uid} が無ければ作成する（項目は DB設計書 No.1。email は ID token の email クレーム〔無ければ空文字〕、subscriptionCount=0、accountNotificationEnabled=true）。作成時は consentHistory に1件（termsVersion・privacyVersion・acceptedAt・kind〔'create'〕）を入れる。acceptedAt は transaction の前に Timestamp.now() で1回作り、termsAcceptedAt と同じ値にする。すでにあり、版が現行と同じなら何もしない。版が古ければ版と同意日時と updatedAt を更新し、同じ transaction の中で consentHistory に1件足す（再同意。kind は 'reconsent'。kind は画面から送らず、サーバーが users の有無で決める。最大20件で、超えたら古いものから消す。email は更新しない）。
+6. 成功したらS-03ホーム画面へ移動する。
+7. 手順3（bootstrap）の失敗の扱い：401 は onApiGate（期限切れの文で S-02）。やり直せる失敗（503・500 RESOURCE_EXHAUSTED・409 CONFLICT・オフライン・通信の失敗。文は決まりの一覧 C-4）は、サインアウトせず、同じ画面のまま下の404のときと同じ表示に切り替える（同意のチェック2つはチェックした状態のまま残し、［アカウントを作成］はもう出さない）。S-01 は、開いたときにログイン済みなら、自分で GET /api/account を読む（開いた後の最初の認証の確定の1回だけで、登録の送信中は読まない。Gates は使わない。200 なら S-03 へ replace、読めなければ「読み込めませんでした。ページを再読み込みしてください」だけ〔再試行のボタンなし〕）。404（users が無い。初期設定がやり直せる失敗で止まった後、読み込み直した後を含む）のときは、入力欄を出さず、同意のチェック2つと「初期設定をやり直す」ボタン（2つともチェックしたときだけ押せる。押すと bootstrap だけを呼ぶ。ユーザーは作り直さない）と「ログアウト」（詳細_F-02 の手順4と同じ処理でサインアウトし、S-02 へ移動する）だけを出す。409（版違い）は onApiGate を呼ばず、下のとおり。それ以外（500 INTERNAL_ERROR など）は、サインアウトしてS-02へ移動し、「登録は完了しましたが初期設定に失敗しました。もう一度ログインしてください」と表示する。再ログインすると S-13 が出て、同意して bootstrap をやり直す（完了するまで他の画面には進ませない）。手順3が409（版違い）のときは、サインアウトしてS-02へ移動し「利用規約が更新されました。もう一度同意してください」と表示する。
+A13=出力（正常） | B13=S-03ホーム画面へ移動する。
+A14=出力（0件） | B14=―（0件の概念はなし）
+A15=異常系 | B15=・メール形式不正・パスワード8文字未満・確認用パスワードの不一致：入力欄の下に赤字（例「パスワードは8文字以上で入力してください」「パスワードが一致しません」）。
+・同意チェックが足りない間は［アカウントを作成］を押せない。
+・メールがすでに使われている：「このメールアドレスはすでに登録されています」と表示し、その文の下に「ログインして続けてください」と S-02 へのリンクを出す（初期設定の途中でログアウトし、同じメールで登録し直した人のため）。
+・登録時に規約の版が現行と違う（409）：サインアウトしてS-02へ移動し「利用規約が更新されました。もう一度同意してください」と表示する。
+・アカウントの作成（Authentication）の通信失敗：「登録できませんでした。もう一度お試しください」。初期設定（bootstrap）の失敗は、手順7のとおり（やり直せる失敗〔503・500 RESOURCE_EXHAUSTED・409 CONFLICT・オフライン・通信の失敗〕は決まりの一覧 C-4 の文を出し、S-01 はその場で入力欄を消して同意のチェック2つ〔チェックしたまま〕と「初期設定をやり直す」〔2つともチェックしたときだけ押せる。bootstrap だけを呼ぶ〕と「ログアウト」だけを出す）。
+A16=同じ処理を2回したとき・競合 | B16=bootstrapは同じuidなら2回呼んでも1件のまま（subscriptionCountは0のまま）。同時に呼んだときも1件。
+A17=テストの場面 | B17=・同意なし
+・古い版
+・Auth作成後にbootstrapが失敗→再ログインで回復
+・bootstrapを同時に2回
+・他人のuidを指定できない（uidはtokenから取得）
+
+##### シート：詳細_F-02
+A1=F-02　ログイン・ログアウト・パスワード再設定機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-02
+A5=優先度・段階 | B5=Must／段階1
+A6=担当 | B6=主：比嘉　副：金城
+A7=実行する場所 | B7=ブラウザ → Firebase Authentication、ブラウザ → サーバー
+A8=関連画面 | B8=S-02・S-09・S-13
+A9=API | B9=GET /api/account, DELETE /api/push/subscribe（ログアウト時）
+A10=読み書きするデータ | B10=Firebase Authentication、users/{uid}（読み取り）、users/{uid}/webPushSubscriptions（ログアウト時の解除）
+A11=入力・参照 | B11=・メールアドレス
+・パスワード
+・（再設定時）メールアドレス
+A12=処理手順（1行に1手順） | B12=1. S-02でメールアドレスとパスワードを入力して「ログイン」を押す。
+2. ログイン済みのまま押したとき（ログアウトせずに別の人がログインするとき）は、先に logout() を行う（この端末の Push 購読の解除とサインアウト。最大3秒。前の利用者の通知が、この端末に届かないようにする）。ブラウザからFirebase Authenticationでログインし、成功したらS-03へ移る。中の画面では、Gates（画面を切り替える部品）がログインした人ごとに1回 GET /api/account を呼び、users/{uid} があり、規約の版が現行と同じかを確認する（終わるまでは「読み込み中…」）。
+3. users/{uid} が無い（404）または版が古いときは、F-01の同意の確認画面（S-13）を出す（同意のし直しは bootstrap で行い、consentHistory に1件足す。kind は users が無ければ 'create'、版の更新なら 'reconsent'）。問題がなければS-03ホーム画面を出す。
+4. ログアウト：S-09またはS-13で「ログアウト」を押すと、先に DELETE /api/push/subscribe（この端末の購読解除）を呼んでブラウザの購読も解除し、Firebaseからサインアウトして S-02 へ移動する。解除に失敗してもログアウトは続ける（DELETE の応答を待つのは2.5秒までで、そのあと結果にかかわらずブラウザの購読を解除する。全体で最大3秒）。ログアウトのときは、S-09 からでも S-13 からでも、サーバーの結果（409・失敗・3秒の打ち切りを含む）に関係なく、ブラウザの購読を必ず解除する。この解除の呼び出しでは onApiGate を呼ばない（ブラウザに購読が無い端末では、DELETE /api/push/subscribe を呼ばない）（共有の端末で、前の利用者の通知が届かないようにするため。S-09 のスイッチをオフにするときの扱いとは違う）。users/{uid} が無い状態の S-13 でログアウトしたときは、DELETE /api/push/subscribe が409 ACCOUNT_NOT_INITIALIZED を返すが、これも解除の失敗として扱い、ブラウザの購読を解除してログアウトを続ける（画面はすでに S-13 なので、切り替わらない）。
+5. パスワード再設定：S-02の「パスワードを忘れた場合」を押すと、①に入力したメールアドレスにFirebaseが再設定メールを送る。メールアドレスが空・形式が不正のときは、①の下に「メールアドレスを入力してください」と表示して送らない。送信後は「再設定用のメールを送りました。届かない場合は迷惑メールフォルダを確認してください」と表示する（メールアドレスが未登録でも同じ表示にし、登録の有無を知らせない）。
+6. S-09の「パスワードを再設定」を押すと、ログイン中のメールアドレスに再設定メールを送り、「再設定用のメールを送りました」と表示する。
+A13=出力（正常） | B13=ログイン成功でS-03へ移動。ログアウトでS-02へ移動。
+A14=出力（0件） | B14=―
+A15=異常系 | B15=・メールまたはパスワードが違う：「メールアドレスまたはパスワードが正しくありません」（どちらが違うかは示さない）。
+・通信失敗：「ログインできませんでした。もう一度お試しください」。
+・ログイン後に GET /api/account を読めなかったとき（通信の失敗、5xx など）：中の画面を出さずに、共通の読み込み失敗の表示（「読み込めませんでした」「もう一度お試しください」。オフライン・一時的な障害は共通の文言）と［再試行］を出す。同意（S-13）の後の読み直しで失敗したときも同じ。
+・再設定メールの送信失敗：「送信できませんでした。もう一度お試しください」。
+・ログアウト時の購読解除の失敗：表示せず、ログアウトを続ける。
+・ログインの期限切れ（APIが401 UNAUTHENTICATED）：この端末の Push 購読をブラウザ側で解除し（サーバーのAPIは呼ばない。待つのは最大3秒で、失敗しても続ける）、サインアウトして S-02 へ移動し、「ログインの有効期限が切れました。もう一度ログインしてください」と表示する。
+・ログインしていない状態でS-02・S-01・S-11・S-12以外を開く：S-02へ移動する。
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・正しいログイン
+・誤ったパスワード
+・users未作成のログイン→同意の確認画面
+・ログアウト後の保護画面
+・再設定メール送信後の表示
+
+##### シート：詳細_F-03
+A1=F-03　サブスク登録・編集・削除機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-03
+A5=優先度・段階 | B5=Must／段階1
+A6=担当 | B6=主：呉屋（S-05・S-06 の画面）・金城（API・請求日）　副：比嘉（S-05・S-06 の画面）・呉屋（API・請求日）／S-04 の画面は 04-09（比嘉）
+A7=実行する場所 | B7=ブラウザ → サーバー（すべてサーバーAPI経由）
+A8=関連画面 | B8=S-04・S-05・S-06
+A9=API | B9=GET/POST /api/subscriptions, GET/PATCH/DELETE /api/subscriptions/:id
+A10=読み書きするデータ | B10=users/{uid}/subscriptions/{subscriptionId}、users/{uid}.subscriptionCount
+A11=入力・参照 | B11=・サービス名（必須）
+・プラン名（任意）
+・1回の請求額（必須・円）
+・請求周期（必須）
+・請求日（firstBillingDate・必須）
+・請求日方式（必須）
+・カテゴリー（必須。画面の初期値は「その他」）
+・無料トライアルの有無と最終無料日
+・公式サイトURL・解約URL（任意）
+・支払方法の表示名（任意）
+・メモ（任意）
+・このサブスクの通知（既定オン）
+A12=処理手順（1行に1手順） | B12=1. 【一覧】S-04を開くと GET /api/subscriptions で全件（最大200件）を取得し、次回請求日の近い順（同じ日は登録の古い順＝API の並びのまま）に並べて表示する（Must。04-09〔比嘉〕）。
+2. 【登録】S-05で入力して［保存する］を押す。ボタンを押せなくして「保存中…」と表示する（二重送信を防ぐ）。
+3. ブラウザで入力チェックを行う。エラーは入力欄のすぐ下に赤字で表示する。1回押した後は、エラーがある間は［保存する］を押せない。
+4. POST /api/subscriptions を呼ぶ。サーバーは許可されたフィールドだけを受け付け（未知のフィールドは400）、各項目を検証する。
+5. 同じ名前のサービス（前後の空白を除き、英字は大文字小文字を区別しない）がすでにあり、confirmDuplicate が true でなければ、409 DUPLICATE_CANDIDATE を返す。画面は「『{サービス名}』はすでに登録されています。別の契約として登録しますか？」と［登録する］［戻る］を表示する。［登録する］は confirmDuplicate=true で再送する。
+6. 同名確認と同じ transaction の中で users/{uid} も読み（無ければ 409 ACCOUNT_NOT_INITIALIZED）、読み取った全サブスクの数を現在の件数とする（登録が成功したときは、subscriptionCount もその数+1に直る。409のときは何も書かない）。200件に達していれば409 SUBSCRIPTION_LIMIT_REACHED（同名の警告が先、件数の確認は後）。そうでなければ nextBillingDate を計算して保存し、subscriptionCount を件数+1にする。
+7. 201を返し、画面はS-06（サブスク詳細画面。画面の見出しは「サービス詳細」）へ移動する。
+8. 【編集】S-06の「編集する」からS-05を開く。登録済みの値が入っており、タイトルは「サブスクを編集」。PATCH /api/subscriptions/:id で変更した項目だけを送る。サーバーは nextBillingDate を再計算する。成功したらS-06へ戻る。
+9. 【削除】S-06の「削除する」を押すと確認ダイアログを表示する（「{サービス名}を削除しますか？ 通知の履歴は残ります。この操作は取り消せません。」［キャンセル］［削除する］）。［削除する］で DELETE /api/subscriptions/:id を呼ぶ。サーバーは transaction で users/{uid} を読み、サブスクを読み直して（すでに無ければ404）、削除と subscriptionCount の1減算を同時に行い、204を返す。画面はS-04へ移動し「削除しました」と表示する。
+10. 【解約案内】S-06は、次回請求日の7日前から画面上部に「MM/DD に ¥X の請求予定です。使っていなければ、請求日の前に解約を検討しましょう。」と［解約ページを開く］を表示する。解約URLが未登録のときは「未登録：編集で追加できます」と表示する。表示するのは、今日から次回請求日までが0〜7日のとき（請求日の当日も表示し、8日以上先は表示しない。0円のサブスクも同じ）。無料トライアル（trialEnabled=true）で、今日から最終無料日までが0〜7日のときは、請求の案内の代わりに「MM/DD で無料期間が終わります。続けないなら、その日までに解約を検討しましょう。」を同じ形で表示する（請求日が8日以上先でも表示する。最終無料日を過ぎたら、請求の条件だけで決める）。S-06 の注意書き（⑪）には「解約したら、このサブスクを削除してください。」と表示する（解約済みの状態は管理しない）。
+11. S-05の通知の欄に「通知は請求日・最終無料日の7日前と1日前。毎日、日本時間9時台（遅れると11時台か18時台）に判定します。その日の判定より後に登録した分は、次の送信日から通知します」を表示する。
+A13=出力（正常） | B13=登録後はS-06へ、編集後はS-06へ、削除後はS-04へ移動する。
+A14=出力（0件） | B14=S-04：「サブスクを登録していません」と［サブスクを追加］の案内を表示する。
+A15=異常系 | B15=・入力エラー：項目ごとに赤字（表は要件定義書「共通ルール」の「入力項目」を参照）。
+・APIが入力エラー（400）を返したとき：details の各 message を、その field の欄の下に表示する（その欄を直すと消える。請求日方式のエラーは、請求日か請求日方式を変えると消える）。欄の無い field だけのとき（未知のキーなど）は「保存できませんでした。もう一度お試しください」。
+・同名の警告（409）：確認ダイアログ。
+・200件上限（409）：「登録できるサブスクは200件までです」（画面・APIのmessageとも同じ文言）。
+・他人のID・存在しないID（404）：APIのmessageは「サブスクが見つかりません」。S-06は「見つかりません」と［一覧へ戻る］を表示する（Pushから開いたときはS-08へ移動）。
+・Firestoreの無料枠超過（500 RESOURCE_EXHAUSTED）：「一時的に利用できません。時間をおいて再試行してください」。
+・通信失敗：「保存できませんでした。もう一度お試しください」（削除は「削除できませんでした。もう一度お試しください」）。オフラインのときは「オフラインです。接続を確認してください」、一時的な障害のときは「一時的に利用できません。時間をおいて再試行してください」を優先して表示する。
+・競合（409 CONFLICT）：画面は「保存できませんでした。もう一度お試しください」を表示する（APIのmessageは「競合しました。もう一度お試しください」のまま。messageと画面の文言が違う例外）。
+A16=同じ処理を2回したとき・競合 | B16=連打は画面で防ぐ（保存中は［保存する］を押せない）。画面を通さず同じPOSTが2回送られたときは、1件目が201、2件目は同名の警告（409）になる。同時に送られても同じ（API共通仕様「8. 同時に送られたPOST」）。confirmDuplicate=true なら2件になる（同名の契約は許容）。200件の上限は transaction で守り、同時に登録しても超えない。DELETEを2回呼ぶと、2回目は404。S-06 の削除で404が返ったときは、画面は「削除しました」としてS-04へ移動する。
+A17=テストの場面 | B17=・必須漏れ
+・価格の範囲外・小数
+・存在しない日付
+・同時に201件目
+・DELETEを2回
+・他人のID
+・同名の警告
+・firstBillingDate変更後にnextBillingDateが再計算される
+・カード番号様のメモを拒否
+
+##### シート：詳細_F-04
+A1=F-04　請求予定・料金換算表示機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-04
+A5=優先度・段階 | B5=Must／段階2
+A6=担当 | B6=主：比嘉　副：金城
+A7=実行する場所 | B7=ブラウザ → サーバー（集計はサーバー）
+A8=関連画面 | B8=S-03・S-04・S-06
+A9=API | B9=GET /api/dashboard, GET /api/subscriptions, GET /api/subscriptions/:id（S-06 の換算額）
+A10=読み書きするデータ | B10=users/{uid}（同意の確認）、users/{uid}/subscriptions（読み取りのみ）、users/{uid}/notificationEvents（未読の集計）
+A11=入力・参照 | B11=・ログイン中のユーザーのサブスク（price、billingCycle、firstBillingDate、billingDayMode）
+・基準日（日本時間の今日）
+A12=処理手順（1行に1手順） | B12=1. S-03を開くと GET /api/dashboard を呼ぶ。
+2. サーバーはログイン中のユーザーのサブスクをすべて取得する。
+3. 各サブスクについて、firstBillingDate・請求周期・請求日方式から、表示する期間に入る請求日をすべて計算する（月末に存在しない日は月末日に丸める）。
+4. 今週（日本時間の月曜〜日曜）と今月（1日〜末日）に入る請求日の price を合計し、件数も数える。
+5. 年額換算の合計 A を、各サブスクの price × 12 ÷ 周期月数（毎月=12、3か月=4、6か月=2、毎年=1を掛ける）を足して求める。月額換算の合計は A ÷ 12 を最後に1回だけ四捨五入した値（整数の計算では floor((A + 6) ÷ 12)）。年額換算の合計は A。
+6. 今日から7日以内（今日と7日後を含む）の請求を日付の近い順に最大5件選び、あと何日かを計算する。同じ日の請求は作成日時の昇順。各行に websiteUrl も入れ、S-03のアイコンに使う。
+7. 未読の通知数（viewedAt が null で、createdAt が「現在時刻−90日」以後。上限は付けない）を count() 集計で数える。登録数（subscriptionCount）は、読み取ったサブスクの実際の件数を返す（users.subscriptionCount は使わない）。
+8. S-03に、今週と今月の請求予定（どちらも件数と金額）、月額換算の合計、年額換算の合計、登録数、7日以内の請求の一覧、通知アイコンと未読数を表示する。
+A13=出力（正常） | B13=S-03に上記を表示する。S-06 には、そのサブスク1件分の月額換算・年額換算を表示する（画面設計書 S-06 ③④）。金額は「予定額」であり、実際の決済額ではないと注記する。
+A14=出力（0件） | B14=登録が0件のとき：金額は「¥0」と表示し、その下に［サブスクを登録する］ボタンを表示する（S-05へ移動）。登録はあるが7日以内の請求が無いとき：次の請求カードは「次の請求予定／7日以内の請求予定はありません」、「今後の支払い予定」の欄にも「7日以内の請求予定はありません」と表示する（金額の集計は通常どおり）。
+A15=異常系 | B15=・読み込み失敗：「請求予定を読み込めませんでした。もう一度お試しください」と表示し、金額は表示しない。
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・テストデータの期待値
+・月末の請求日（1/31→2/28）
+・うるう年2/29
+・6か月・年額の周期
+・0件
+・3周期混在の合計の丸め
+
+##### シート：詳細_F-05
+A1=F-05　請求カレンダー機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-05
+A5=優先度・段階 | B5=Should（遅れたら最初に削る。削ったら一覧の次回請求日で代え、下部ナビの「カレンダー」は出さず、/calendar は S-04 へ replace する）／段階2
+A6=担当 | B6=主：呉屋　副：金城
+A7=実行する場所 | B7=ブラウザ → サーバー
+A8=関連画面 | B8=S-07
+A9=API | B9=GET /api/calendar?month=YYYY-MM
+A10=読み書きするデータ | B10=users/{uid}（同意の確認）、users/{uid}/subscriptions（読み取りのみ）
+A11=入力・参照 | B11=・表示する月（YYYY-MM。初期値は今月）
+A12=処理手順（1行に1手順） | B12=1. S-07を開くと、今月を指定して GET /api/calendar?month=YYYY-MM を呼ぶ。
+2. サーバーはサブスクをすべて取得し、各サブスクの請求日を firstBillingDate から周期ごとに計算して、その月に入る請求日だけを日付ごとにまとめる（nextBillingDate だけには頼らない）。
+3. 画面は請求のある日にマーカーを付け、月間の請求予定額を表示する。
+4. 日付を押すと、その日の請求予定（サービス名と金額）を一覧で表示する。
+5. 「前月」「翌月」で月を切り替える（同じAPIを呼び直す）。続けて切り替えたときは、最後に指定した月の応答だけを表示に使う（先に頼んだ月の応答が遅れて届いても使わない）。
+A13=出力（正常） | B13=カレンダーとマーカー、選択した日の請求予定、月間の請求予定額を表示する。「予定額は実際の決済額ではありません」と注記する。
+A14=出力（0件） | B14=「この月の請求予定はありません」と表示する。
+A15=異常系 | B15=・読み込み失敗：「カレンダーを読み込めませんでした。もう一度お試しください」。
+・月の形式が不正（400）：今月を表示する（S-07 は URL の month を読まない。API が400を返したときだけ、今月を指定して読み直す。それも400なら読み込み失敗の表示にする）。
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・周期ごとの請求日
+・月末丸め
+・年をまたぐ月の切り替え
+・0件の月
+
+##### シート：詳細_F-06
+A1=F-06　アプリ内通知・Web Push機能（請求前通知）
+A3=項目 | B3=内容
+A4=機能ID | B4=F-06
+A5=優先度・段階 | B5=Must（アプリ内通知・Cron）・Should（Web Push の購読〔04-12〕と送信〔04-15〕）／段階3
+A6=担当 | B6=主：比嘉（Push）・金城（Cron）　副：呉屋（Push）・比嘉（Cron）
+A7=実行する場所 | B7=サーバー（Vercel Cron が呼ぶAPI）
+A8=関連画面 | B8=S-08・S-09
+A9=API | B9=GET /api/cron/daily, POST/DELETE /api/push/subscribe
+A10=読み書きするデータ | B10=users/{uid}（読み取り）、users/{uid}/subscriptions（検索と nextBillingDate の更新）、users/{uid}/notificationEvents、users/{uid}/webPushSubscriptions、cronRuns/{runDate}
+A11=入力・参照 | B11=・Vercel Cronからの呼び出し（Authorization: Bearer CRON_SECRET）
+・日本時間の今日（runDate）
+・全サブスクのnextBillingDate・trialEndDate・price・通知設定
+A12=処理手順（1行に1手順）手順1〜7 | B12=1. Vercel Cronが毎日 UTC 0:00（日本時間9:00）・UTC 2:00（日本時間11:00）・UTC 9:00（日本時間18:00）に GET /api/cron/daily を呼ぶ（Hobbyプランは最大59分ずれる）。11時と18時は前の実行の続きで、その日の実行が完了していれば何もしない。
+2. Authorization: Bearer {CRON_SECRET} が正しくなければ401 INVALID_CRON_SECRET で終了する。
+3. runDate（日本時間の今日）を決め、cronRuns/{runDate} を transaction で確認する。completedなら200 noop で何もせず終了。runningで開始から10分未満なら409 CRON_ALREADY_RUNNING。それ以外（未実行・running 10分以上・partial・failed）はrunningとして開始する。
+4. 【refresh_stale】nextBillingDate が今日より前のサブスクを collectionGroup で最大200件ずつ探し、firstBillingDate と周期から次回請求日を計算し直して更新する。更新したものは条件から外れるので、0件になるまで繰り返す。(1)50回繰り返した、(2)内部締切（240秒）を超えた、のどちらかなら partial で止める（次の実行〔11時台・18時台〕で続きから）。計算し直しても今日より前のまま・壊れたデータは更新せず、failedCount に数えてログに出す。更新は1件ずつ、検索で読んだ文書の updateTime を前提条件（Admin SDK の update の第2引数 {lastUpdateTime}）に付けて行う（利用者の編集を上書きしないため）。更新の途中で消えたサブスク（NOT_FOUND）と、前提条件に合わなかったサブスク（FAILED_PRECONDITION。その間に編集された）は無視し（failedCount に数えない）、ほかの更新エラーは失敗として扱う（手順12）。1回の取得で1件も更新できなかった（想定外のデータだけが残った）ときは更新をやめて次の段階へ進み、最後は completed になる。先頭から200件すべてが更新できないと、その後ろのデータも更新されないまま打ち切られる（まれな場合。ログに残す）。
+5. 【candidates】nextBillingDate が「今日+1日」または「今日+7日」のサブスク、および trialEndDate が「今日+1日」または「今日+7日」のサブスクを collectionGroup で探す。
+6. 【events】候補ごとに次を判定する：親の users/{uid} があるか（無ければそのuidは何も作らない。アカウント削除の途中などで、持ち主のいない通知を作らないため）／全体通知（accountNotificationEnabled）と個別通知（subscriptionNotificationEnabled）が両方オンか／priceが0円のbilling通知は作らない／同じサブスクで、この実行で trial_end 通知を作るなら billing 通知は作らない（例：最終無料日の1日前の日に、請求日の7日前が重なるとき＝請求日が最終無料日の6日後）。trial_end が前の実行ですでに作られているとき（同じIDがすでにある）も、billing は作らない（trial_end を作る条件に合うかで決める）。親の users/{uid} は、この判定では同じuidは1回だけ読む。
+7. 通知イベントは決定的ID（sha256(uid|subscriptionId|notificationType|daysBefore|targetDate)）で作る。作成は、親の users/{uid} とその通知イベントを読む transaction の中で行う（users/{uid} が無くなっていたら、その uid は作らない。理由は「API共通仕様」の「Cronとの競合」）。同じIDがすでにあるとき（ALREADY_EXISTS を含む）は何もしない（2回実行しても重複しない）。ABORTED などほかのエラーは失敗として扱う（手順12）。targetDate は今日。title・body は要件定義書「共通ルール」の「通知の文面」で作り、serviceNameAtNotification と priceAtNotification（billingのみ）も保存する。createdAt は Timestamp.fromDate(new Date())（ミリ秒精度。通知一覧のcursorがミリ秒で比べるため serverTimestamp は使わない）、expireAt は createdAt+90日。ほかの項目の初期値は DB設計書 テーブルNo.3 のとおり（viewedAt は null、webPushStatus は pending、webPushDeliveredIds は空の配列、webPushSentAt・webPushLastErrorCode は null、updatedAt は createdAt と同じ値）。
+A13=処理手順（続き）手順8 | B13=8. 【push】
+8-1. 送る対象：この実行で候補になり、手順6の判定を通ったサブスクについて、通知ID（決定的ID）を計算して直接取得した通知イベントのうち、targetDate が今日で webPushStatus が pending のもの（インデックスは不要。候補にならなかった過去の通知は探さない。判定を通らなかったサブスクの pending は送らない。例：9時と11時の間に通知をオフにした利用者）。
+8-2. 利用者ごとに、処理を始める前に締切（240秒）を確認し、webPushSubscriptions の全端末（最大10端末）へ web-push で送る。すでに送り終えた端末（イベントの webPushDeliveredIds にあるID）へは送らない。成功したらすぐ webPushDeliveredIds にその端末のIDを追加して保存する。
+8-3. 同時送信は最大10（1件の通知イベントの中の端末の数。通知イベントは、利用者ごとに1件ずつ順に送る。締切は、利用者ごとの処理の前に加えて、通知イベント1件の送信の前にも確認し、過ぎていたらそこで止めて partial にする。送れなかった通知イベントは pending のまま残り、次の実行（11時台・18時台）が続きを送る）。1端末あたりのタイムアウトは10秒（送信を始めてから10秒で打ち切る）で、5xx・429・タイムアウト・通信エラー（statusCodeなし）は1秒後に1回だけ再試行する。401/403・404/410・そのほかの4xx・VAPID鍵の未設定は再試行しない。
+8-4. 404/410はその購読を削除する（再試行の結果が404/410のときも同じ）。401/403は設定エラーとして購読を残しログに出す（出すのは code=PUSH_CONFIG_ERROR と HTTPステータスだけ。endpoint・鍵・webPushId は出さない）。そのほかの4xx（400・413など）は失敗として数え、購読は残す。
+8-5. Pushの中身は {title:「{サービス名}：{title}」, body, url:「/subscriptions/{subscriptionId}」, notificationId}、TTL は86400秒、urgency は normal、VAPIDの subject は環境変数 VAPID_SUBJECT。
+8-6. 分担（「型定義」の PushSender）：送る通知イベントを選ぶこと、利用者ごとの締切の確認、sentCount・failedCount の集計は Cron（lib/cron.ts）が行う。購読の読み取り、端末への送信と再試行、webPushDeliveredIds の保存、404/410 の購読の削除、webPushStatus・webPushSentAt・webPushLastErrorCode の保存（手順9）は PushSender（lib/push.ts）が行い、結果を PushResult で返す。sentCount は status が sent・partially_sent の通知イベントの数、Push の failedCount は failed の数（skipped は数えない）。
+A14=処理手順（続き）手順9〜13 | B14=9. 結果をまとめて webPushStatus に保存する：全端末成功=sent、成功と失敗が混在=partially_sent、成功0=failed、購読なし=skipped。成功には、前の実行で送り終えた端末（webPushDeliveredIds にあるID）も数える（全端末が送信済みなら、1件も送らずに sent）。購読が0件でも webPushDeliveredIds にIDがあれば sent とし、skipped は購読も送信済みも0件のときだけにする。購読がなくてもアプリ内通知は作られており、S-08に表示される。ただし、送信後・保存前にサーバーが止まると、同じ端末へもう一度送る可能性がわずかに残る（Pushの二重配信を完全には防げない。許容する）。
+10. 【cleanup】Push の送信が終わったら、期限（expireAt）が現在以前の通知イベント（collectionGroup の notificationEvents）と cronRuns を、それぞれ500件ずつ削除する（Firestore の TTL 機能は課金が必要なため使わない）。削除した件数が500件に達したときは、続きがあるとみなして、1回の実行で最大10回（各種類5,000件）まで繰り返す。通知イベント・cronRuns のどちらも、各回（1回目を含む）の前に締切を確認する。partial のとき、および cleanup を始める時点で締切を過ぎているときは行わない（次の実行で行う）。締切のために cleanup だけを行わなかったときの status は completed のまま。削除に失敗しても結果は変えず、削除した件数とともにログにだけ出す。通知一覧は常に createdAt が直近90日のものだけを表示するので、削除が遅れても古い通知は見えない。
+11. 内部締切の240秒を超えたら処理を止めて status=partial で終了する。partial・failed のときは、vercel.json の2本目・3本目の cron（日本時間11時・18時）が同じAPIをもう一度呼び、続きから進む（イベントはIDで重複せず、webPushDeliveredIds にある端末へは再送しない）。手動の再実行は不要で、必要なら運用担当（金城）が同じURL（GET /api/cron/daily、Authorization: Bearer CRON_SECRET）を呼べる。すべて終われば status=completed、createdCount・sentCount・failedCount を記録して200を返す。応答は {status:'completed'|'partial'|'noop', createdCount, sentCount, failedCount}（noop＝すでにcompleted）。件数は同じ日の再実行で加算する。failedCount は Push の失敗と次回請求日の更新失敗の合計で、同じ日の再実行で、更新できない同じサブスクを重ねて数えることがある。
+12. 例外が出たら status=failed と errorCode（返すエラーのコード。例：RESOURCE_EXHAUSTED。エラーの本文は保存しない）を記録し、「API共通仕様」のFirestoreのエラーの変換どおりのステータスを返す（RESOURCE_EXHAUSTED・その他は500、UNAVAILABLEは503、ABORTEDは409）。failed は同じ日の11時台に再開し、それでも失敗なら18時台に再開し、それでも失敗なら翌日の実行を待つ。
+13. 実行結果の確認：10時以降に cronRuns/{runDate} の status・failedCount を見る（9時台が partial・failed なら、11時台の実行の後〔12時以降〕にもう一度見る。それでも残っていれば原因を調べ、18時台の実行の結果を次の授業日に見る）。11/26 は比嘉（04-21）、12/1 は呉屋（04-23）、12/2 は呉屋（05-01）、ほかの公開中の授業日（11/26 以降）は金城がその日の2限の初め（10時以降）に見る（5分。タスクの時間に含む）。手で実行するのは金城だけ。
+A15=出力（正常） | B15=通知イベントが作られ、S-08に表示される。対応端末にはPushが届く。通知の文面は要件定義書「共通ルール」の「通知の文面」のとおり（例：請求の1日前は、タイトル「請求日まであと1日」・本文「11/05・¥980 の請求予定」。Pushのタイトルは先頭にサービス名を付ける）。
+A16=出力（0件） | B16=対象がなければ何も作らずcompletedで終了する。
+A17=異常系 | B17=・Cronシークレット不一致：401。
+・同時実行：409。
+・Firestoreの一時障害：503 TEMPORARILY_UNAVAILABLE。競合：409 CONFLICT。どちらもそのrunはfailedとなり、11時台（それも失敗なら18時台）に再開する。
+・Pushが404/410：購読を削除。
+・Firestoreの無料枠超過：500 RESOURCE_EXHAUSTED。そのrunはfailedとなる。11時の実行も同じ失敗になりやすい（Spark の1日の枠は太平洋時間の0時、日本時間の16時か17時に戻るため）。枠が戻った後の18時台の実行で再開する。それも失敗したら、翌日の実行を待つ（その日の通知は、後から送らない）。
+A18=同じ処理を2回したとき・競合 | B18=通知は決まったID（sha256）で作る。2回実行しても1件のまま。作成は users/{uid} を読む transaction の中で行うので、アカウント削除と同時に動いても、持ち主のいない通知は残らない。Pushは webPushStatus が pending のものだけを送る。
+A19=テストの場面 | B19=・基準日の期待通知2件
+・2回実行
+・通知OFF
+・0円
+・送信日の重なり
+・401
+・404/410で購読削除
+・partial後の再実行
+・Pushを使えない端末のアプリ内通知
+・期限切れの削除（cleanup）
+・途中で締切（partial）→同日に再実行
+・端末ごとの再送防止（webPushDeliveredIds）
+・usersが無いuidのサブスクは通知を作らない
+・refresh_staleの打ち切り
+・通知を作る直前に users/{uid} が消えたら作らない
+
+##### シート：詳細_F-07
+A1=F-07　アカウント削除機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-07
+A5=優先度・段階 | B5=Must／段階4
+A6=担当 | B6=主：金城　副：比嘉
+A7=実行する場所 | B7=ブラウザ → Firebase Authentication（パスワードの再認証）、ブラウザ → サーバー
+A8=関連画面 | B8=S-09・S-13
+A9=API | B9=DELETE /api/account
+A10=読み書きするデータ | B10=users/{uid} 配下すべて、Firebase Authentication
+A11=入力・参照 | B11=・削除の確認（確認ダイアログ）
+・パスワード（再認証用）
+・confirmation:'DELETE'
+A12=処理手順（1行に1手順） | B12=（S-13 ⑧の「アカウントを削除する」からも同じ手順で行う。リンクの出し方・失敗の文の位置・処理中に押せないことは、画面設計書 S-13 ⑦⑧のとおり（部品は同じ DeleteAccount）。応答が届かないときは「異常系」の欄。）
+1. S-09で［アカウントを削除］を押し、確認ダイアログ（「アカウントを削除しますか？ 登録したサブスクと通知の履歴がすべて消えます。この操作は取り消せません。確認のため『DELETE』と入力してください」［キャンセル］［次へ］。DELETE と入力するまで［次へ］は押せない）を表示する。
+2. パスワードを入力する（常に求める。「本人確認のため、パスワードを再入力してください」［キャンセル］［削除する］）。押した時点で navigator.onLine が false なら、再認証も DELETE も行わず共通のオフラインの文を出す（サインアウトしない。ダイアログは開いたまま）。オンラインなら、ブラウザでFirebaseの再認証を行い、ID tokenを取り直す。パスワードが違うときは、ダイアログを開いたまま、入力欄の下に「パスワードが違います」と表示する（DELETE API は呼ばない。入力し直せる）。パスワード違いとして扱うのは、Firebase の auth/wrong-password・auth/invalid-credential・auth/invalid-login-credentials・auth/missing-password（メール列挙保護を既定のまま有効にしているので、本番の Firebase は登録の有無にかかわらず auth/invalid-credential を返す）。パスワードが空のまま［削除する］を押したときは、Firebase を呼ばずに同じ文を表示する。通信の失敗などで再認証できなかったとき（auth/too-many-requests などを含む）は、8 と同じ表示にする。
+3. DELETE /api/account {confirmation:'DELETE'} を呼ぶ。
+4. サーバーはID tokenのauth_timeが5分以内か確認する。古ければ401 REAUTH_REQUIRED（もう一度パスワード入力へ）。
+5. users/{uid} を、subscriptions・notificationEvents・webPushSubscriptions を含めて再帰削除する。users/{uid} がすでに無くても（前回の途中失敗の続き）、そのまま次へ進む（この API は users の存在確認をしない）。
+6. Firebase Authenticationのユーザーを削除する。
+6-2. 後片づけ：もう一度 users/{uid} を再帰削除する（5 の途中から 6 までの間に、別の端末から届いた登録・購読・同意を残さないため。残りが無ければすぐ終わる）。先に users/{uid} のドキュメントを消してから、配下を消す。失敗したら合わせて3回まで行い、3回とも失敗しても 7 へ進む（Authユーザーはもう無く、やり直せないため。サーバーのログに code=DELETE_CLEANUP_FAILED だけを出す〔uid は出さない〕。Firestore には記録しない。残ったものは 12/2 と 12/9 の点検で比嘉（Firebase の持ち主）が手で消す〔手順書 04〕。要件定義書 F-07 の受入条件のただし書き）。
+7. 200 {status:'deleted'} を返す。ブラウザはサインアウトし（ログアウトの後片づけ〔logout()〕は使わない。決まりの一覧 C-14）、S-02へ移動して「アカウントを削除しました。ご利用ありがとうございました」と表示する（完了用のダイアログは作らない）。ブラウザ側のこの端末の Push 購読も、サーバーを呼ばずに解除する（失敗しても続行）。削除が成功した後で同じ呼び出しをもう一度送ると、Authユーザーが無いため401 UNAUTHENTICATED になる（200を受け取れなかった場合も、次のログインができなければ削除済みと分かる）。
+8. 途中で失敗したら500 DELETE_FAILED を返す。画面は確認ダイアログを閉じ、押した入口のすぐ下に「削除できませんでした。もう一度お試しください」を表示する（成功とは表示しない）。もう一度押せば最初からやり直せる（すでに消えたデータは無視して続行する）。
+A13=出力（正常） | B13=S-02に「アカウントを削除しました。ご利用ありがとうございました」と表示する。
+A14=出力（0件） | B14=―
+A15=異常系 | B15=・再認証が古い（401）：パスワードの再入力。
+・削除失敗（500）：再試行の案内。成功とは表示しない。
+・削除の応答が届かない（通信の失敗、または30秒たっても応答が無い。DELETE を送った後の api() の status 0 は、OFFLINE・NETWORK_ERROR・TIMEOUT のどれでも）ときは、画面はこの端末の Push 購読をブラウザ側で解除し（サーバーのAPIは呼ばない）、サインアウトして S-02 へ移り「削除が完了したか確認できませんでした。もう一度ログインしてください（パスワードを確かめてもログインできなければ、削除は完了しています）」と出す（エラーの種類では判定しない。30秒は setTimeout と AbortController で作る）。
+・［削除する］を押した時点（再認証の前）でオフライン（navigator.onLine が false）：再認証も DELETE も行わずに「オフラインです。接続を確認してください」（サインアウトしない。ダイアログは開いたまま。文はダイアログの中の、パスワード違いの文と同じ位置）。図（フローチャート）にも、この分岐と S-13 からの入口を描いた（食い違うときは本文を正とする）。
+A16=同じ処理を2回したとき・競合 | B16=途中で失敗したときは、もう一度呼ぶと最初からやり直して完了する（すでに消えたデータは無視）。削除が成功した後の再送は401 UNAUTHENTICATED になる。削除の途中に別の端末から届いた登録・購読は、手順6-2 の後片づけで消える（Authユーザーを消した後は、同意（bootstrap）が401になり、新しい書き込みは409で止まる。ただし、bootstrap の確定が後片づけより後になると、users がまれに後片づけの成功後にも残り得る（C-12 の③で拾う））。削除が途中で失敗して users だけが消え、配下のデータが残った状態で、S-13 で同意し直したときは、残っていたデータをそのまま使う（users は作り直され、全体の通知は true に戻る。登録数は実際の件数で数えるので壊れない）。
+A17=テストの場面 | B17=・正常削除
+・再認証期限切れ
+・途中失敗→再実行
+・削除後の同メール再登録
+・他人のデータが消えない
+・削除の途中に書き込まれたデータが残らない（後片づけ）
+・後片づけは3回まで行い、3回とも失敗しても成功を返す
+
+##### シート：詳細_F-08
+A1=F-08　無料トライアル日付管理機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-08
+A5=優先度・段階 | B5=Must／段階3
+A6=担当 | B6=主：金城（通知）・呉屋（入力）　副：比嘉
+A7=実行する場所 | B7=ブラウザ → サーバー、サーバー（Cron）
+A8=関連画面 | B8=S-05・S-06・S-08
+A9=API | B9=POST /api/subscriptions、PATCH /api/subscriptions/:id（trialEnabled, trialEndDate）
+A10=読み書きするデータ | B10=subscriptions.trialEnabled, trialEndDate、notificationEvents（trial_end）
+A11=入力・参照 | B11=・トライアル中か（trialEnabled）
+・最終無料日（trialEndDate）
+A12=処理手順（1行に1手順） | B12=1. S-05で「無料トライアル」をオンにすると、「最終無料日」の入力欄を表示する。
+2. trialEnabled=true のときは trialEndDate を必須とし、firstBillingDate（請求日）より前の日付であることを確認する。違えば「最終無料日は請求日より前の日付を入力してください」と表示する。
+3. オフのとき trialEndDate は null として保存する。
+4. Cron（F-06）が、trialEndDate の7日前・1日前に trial_end 通知を作る（当日通知はなし）。
+5. S-06にトライアルの最終無料日と「この日までは無料です」を表示する。トライアルでないサブスクは「対象外」と表示する。最終無料日の7日前から当日までは、S-06 の解約案内に「MM/DD で無料期間が終わります。続けないなら、その日までに解約を検討しましょう。」を表示する（詳細_F-03 の手順10）。
+6. トライアル終了後の契約状態や請求の発生は自動で推定しない。
+A13=出力（正常） | B13=S-05・S-06に日付を表示し、通知が作られる。
+A14=出力（0件） | B14=―
+A15=異常系 | B15=・最終無料日が空：「最終無料日を入力してください」。
+・最終無料日が請求日以降：上記エラー。
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・必須
+・請求日より前
+・7日前・1日前の通知
+・trialをオフにしたときの日付削除
+
+##### シート：詳細_F-09
+A1=F-09　料金・プラン履歴機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-09
+A5=優先度・段階 | B5=MVP後（将来）／作らない
+A6=担当 | B6=―
+A7=実行する場所 | B7=―
+A8=関連画面 | B8=S-10
+A9=API | B9=なし
+A10=読み書きするデータ | B10=なし
+A11=入力・参照 | B11=・―
+A12=処理手順（1行に1手順） | B12=1. 初期版では実装しない。画面S-10は参考資料として残し、DBには履歴用の項目を作らない。
+A13=出力（正常） | B13=―
+A14=出力（0件） | B14=―
+A15=異常系 | B15=・―
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・―
+
+##### シート：詳細_F-10
+A1=F-10　カテゴリー検索・重複確認機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-10
+A5=優先度・段階 | B5=Must（カテゴリー・重複の警告）・Want（検索・並べ替え）／段階1（同名警告）・11/26 の予備が空いたとき（検索・並べ替え）
+A6=担当 | B6=主：金城（検索・並べ替え）・呉屋（重複の警告）　副：呉屋（検索・並べ替え）・比嘉（重複の警告）
+A7=実行する場所 | B7=ブラウザ（絞り込みと並べ替え）、サーバー（重複判定）
+A8=関連画面 | B8=S-04・S-05
+A9=API | B9=GET /api/subscriptions, POST /api/subscriptions（confirmDuplicate）
+A10=読み書きするデータ | B10=subscriptions.category, serviceName
+A11=入力・参照 | B11=・検索語
+・カテゴリー（動画・音楽・クラウド・学習・AI・ゲーム・ニュース・仕事・その他）
+・並べ替え（次回請求日順・料金の高い順・登録日の新しい順）
+A12=処理手順（1行に1手順） | B12=1. S-04は GET /api/subscriptions で取得した全件（最大200件）をブラウザで絞り込む（検索語はサービス名の部分一致、前後の空白を除き英字は大文字小文字を区別しない。全角の英字は、半角とも大文字小文字とも同じにしない。空白だけの検索語は、絞り込まない。検索語の途中の空白は、そのまま比べる。小文字にするのは A-Z だけで、同名の判定と同じ規則）。
+2. カテゴリーを選ぶと、そのカテゴリーのサブスクだけを表示する（「すべて」で解除）。
+3. 並べ替えを選ぶと表示順を変える。既定は次回請求日の近い順（同じ日は登録の古い順。この既定の並びは Must で 04-09（比嘉）が作り、並べ替えの選択を作らなくてもこの並びで出す）。「料金の高い順」は1回の請求額（price）、「登録日の新しい順」は createdAt の日時（ミリ秒まで。日付だけでは比べない）で比べる。値が同じときは、API の並び（作成日時の昇順）のままにする。次回請求日が読めないものは、最後に並べる。値が読めないものは最後に置く。
+4. 登録時の重複警告は F-03 の手順（409 DUPLICATE_CANDIDATE）で行う。同名の契約は登録できる（ブロックしない）。
+5. 検索・絞り込み結果が0件なら「条件に合うサブスクはありません」と表示する。
+A13=出力（正常） | B13=絞り込み・並べ替えした一覧を表示する。
+A14=出力（0件） | B14=「条件に合うサブスクはありません」。
+A15=異常系 | B15=・―（ブラウザ内の処理のため）
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・カテゴリー絞り込み
+・前後の空白（全角を含む）・大文字小文字の検索（全角英数と半角英数は同一視しない）
+・並べ替え3種
+・同名の警告
+
+##### シート：詳細_F-11
+A1=F-11　（欠番・廃止）
+A3=項目 | B3=内容
+A4=機能ID | B4=F-11
+A5=優先度・段階 | B5=廃止／作らない
+A6=担当 | B6=―
+A7=実行する場所 | B7=―
+A8=関連画面 | B8=―
+A9=API | B9=なし
+A10=読み書きするデータ | B10=なし
+A11=入力・参照 | B11=・―
+A12=処理手順（1行に1手順） | B12=1. 実装しない。
+A13=出力（正常） | B13=―
+A14=出力（0件） | B14=―
+A15=異常系 | B15=・―
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・―
+
+##### シート：詳細_F-12
+A1=F-12　通知履歴・設定機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-12
+A5=優先度・段階 | B5=Must（通知の履歴・既読・オン・オフ）／Should（手順6 の Push の受け取りと、手順7 の Push のタップ）／段階3
+A6=担当 | B6=主：比嘉　副：金城
+A7=実行する場所 | B7=ブラウザ → サーバー
+A8=関連画面 | B8=S-03・S-06・S-08・S-09
+A9=API | B9=GET /api/notifications, POST /api/notifications/:id/read, POST /api/notifications/read-all, GET/PATCH /api/account, POST/DELETE /api/push/subscribe, GET /api/dashboard（S-03 の未読数）
+A10=読み書きするデータ | B10=notificationEvents、users.accountNotificationEnabled、webPushSubscriptions、subscriptions（通知のサブスクが今もあるか〔subscriptionExists〕を読むだけ）
+A11=入力・参照 | B11=・フィルター（すべて・未読・請求・トライアル）
+・通知のオン・オフ
+・この端末で受け取る（Push）
+A12=処理手順（1行に1手順） | B12=1. S-08を開くと GET /api/notifications?filter=all&limit=20 を呼ぶ（limit の既定は20、最大50）。直近90日の通知を新しい順に返し、未読数（unreadCount）も返す。未読数は、viewedAt が null で createdAt が90日以内の件数を count() 集計で求める（複合インデックスが1つ必要）。
+2. フィルターを変えると filter を変えて呼び直す。続きは nextCursor を cursor に渡して取得する（cursor は「作成日時のミリ秒_通知ID」。形式が不正なら400 VALIDATION_ERROR）。
+3. 未読は太字と色の点で表示する。カードの［詳細を見る］を押すと POST /api/notifications/:id/read で既読にし、そのサブスクの詳細（S-06）へ移動する。すでに既読の通知は、API を呼ばずに移動する。既読にできたら、S-08 ①の未読数を画面で1減らす（読み直さない）。S-03 ①のバッジは、S-03 を開くたびに読む GET /api/dashboard の unreadCount で合う（画面をまたいで数を持ち回らない）。既読に失敗したら移動せず、「既読にできませんでした。もう一度お試しください」と表示する。サーバーは返す各通知に subscriptionExists（そのサブスクが今もあるか）を付ける（このページの通知のサブスクIDをまとめて取得して調べる）。subscriptionExists が false なら［詳細を見る］は出さず、カードを押すと既読にする（移動しない）。true のとき、カード本体は押せない。通知には作成時のサービス名（serviceNameAtNotification）を表示する。
+4. 「すべて既読にする」は POST /api/notifications/read-all を呼ぶ。サーバーは直近90日の未読を400件ずつ既読にする。成功したら未読数を画面で0にする。
+5. S-09の「通知」スイッチは PATCH /api/account {accountNotificationEnabled} を呼ぶ。オフにすると通知イベントそのものが作られなくなる（アプリ内通知もPushも止まる）。変更した後も、画面を「読み込み中」に戻さない。
+6.（Should）S-09の「この端末でPushを受け取る」をオンにしたときの流れ（図は「図（フローチャート）」シートの「F-12 Web Pushの購読登録」）：
+6-1. ブラウザが Service Worker と Push に対応しているか調べる。iPhoneでホーム画面に追加していなければ「ホーム画面に追加すると利用できます」、それ以外の非対応は「この環境では利用できません」と表示して終了する。
+6-2. 通知の許可を求める。拒否されたら「ブラウザの設定で通知を許可してください」と表示し、オフのままにする。
+6-3. Service Worker を登録して購読を作り、endpoint・p256dh・auth・userAgent（navigator.userAgent）を POST /api/push/subscribe で送る。
+6-4. サーバーは sha256(endpoint) をIDにして保存する（同じ endpoint は上書きするので、2回押しても1件。ほかのuidの同じ endpoint は削除する。登録の前に10件以上なら、9件になるまで lastSeenAt の古い順に削除する。保存までは users/{uid} を読む1つの transaction〔API共通仕様 B23〕）。
+6-5. 失敗したらブラウザの購読を解除し、「登録できませんでした。もう一度お試しください」と表示する（ゲートが反応するエラーのときは文を出さずに元へ戻す）。
+6-6. オフにしたときは、先に DELETE /api/push/subscribe を呼び、成功してからブラウザの購読を解除する。サーバーが失敗したら、ブラウザの購読を残してオンのまま「解除できませんでした。もう一度お試しください」と表示する（ゲートが反応するエラーのときは文を出さずに元へ戻す）。
+7.（Should）Pushの通知をタップすると、Service Worker がPushの url（/subscriptions/{subscriptionId}）に ?from=push を付けて開く。そのサブスクが無ければ（404）S-06は S-08 へ移動する（Pushから開いたときだけ。ほかの移動では「見つかりません」と表示する）。
+A13=出力（正常） | B13=通知一覧、未読数、既読状態、設定の切り替えを表示する。
+A14=出力（0件） | B14=「通知はまだありません」。
+A15=異常系 | B15=・読み込み失敗：「通知を読み込めませんでした。もう一度お試しください」。
+・既読にできない：「既読にできませんでした。もう一度お試しください」。
+・通知設定の変更失敗：「変更できませんでした。もう一度お試しください」（ゲートが反応するエラーのときは文を出さずに元へ戻す。③④とも）。
+・Pushの登録失敗・解除失敗：手順6-5・6-6の文言。
+・Push非対応・許可拒否：アプリ内通知（S-08）だけが使える旨を表示する。
+A16=同じ処理を2回したとき・競合 | B16=既読にするAPIは、すでに既読なら何もしない（既読の巻き戻しなし）。「すべて既読」を2回呼んでも結果は同じ。
+A17=テストの場面 | B17=・90日の境界
+・フィルター4種
+・既読の巻き戻しなし
+・read-all
+・削除済みサブスクの通知表示
+・通知OFFの効果
+
+##### シート：詳細_F-13
+A1=F-13　サービスアイコン自動表示機能
+A3=項目 | B3=内容
+A4=機能ID | B4=F-13
+A5=優先度・段階 | B5=Want／段階5
+A6=担当 | B6=主：金城　副：比嘉
+A7=実行する場所 | B7=ブラウザ
+A8=関連画面 | B8=S-03・S-04・S-05・S-06
+A9=API | B9=なし（ブラウザのみ）
+A10=読み書きするデータ | B10=なし（subscriptions.websiteUrl とサービス名から表示のたびに計算。保存しない）
+A11=入力・参照 | B11=・サービス名
+・公式サイトURL（任意）
+・サービス辞書 data/icon-dictionary.json（150件）
+A12=処理手順（1行に1手順） | B12=1. アイコンを表示するとき、websiteUrl があり、http(s)のホスト名が IPアドレス（IPv4・IPv6。10進・16進の数字で書いた IPv4 を含む）・localhost・内部ホスト（ドットを含まない名前、.local・.internal・.lan・.localhost で終わる名前）でなければ、そのホスト名をドメインにする。ホスト名は小文字にし、末尾のドットを除く（www. は除かない）。ポート・パス・クエリは使わない。URL として読めない値、http(s) でない値は、websiteUrl が無いときと同じに扱う。
+2. そうでなければ、サービス名を正規化（全角半角をそろえ、小文字にし、空白を除く）し、辞書の name または 別名（aliases）と完全一致したら、その domain をドメインにする。部分一致は自動では採用しない。
+3. ドメインが決まったら <img src="https://a.favicon.im/{ドメイン}?throw-error-on-404=true" referrerpolicy="no-referrer"> で表示する（画像の読み込みはブラウザが直接行い、サーバーでは取得しない）。favicon.im へ送るのは、入力した公式サイトのドメイン、またはサービス名から辞書で特定したドメインで、入力中や表示のときに送られる。S-05で入力によってドメインが変わったときは、ドメインが0.5秒変わらなくなってから画像を読み込む（待つ間は頭文字を表示する。入力の途中で1文字ごとに読み込まない）。画面を開いたときの最初の表示は待たない。
+4. ドメインが決まらない、または読み込みに失敗（onerror）したときは、サービス名の頭文字を角丸四角のアイコンに表示する。画像を読み込めるまでは頭文字を表示し、読み込めたら画像に替える。公式サイトURLのドメインで読み込みに失敗したときも、辞書の完全一致には戻らず、頭文字を表示する。
+5. S-05のサービス名入力では、入力に合わせて辞書から候補（前方一致・部分一致）を最大5件表示する。候補は、前方一致を先、部分一致を後に並べる。入力は手順2と同じ正規化をして、辞書の name と 別名（aliases）の両方から探す。同じ組の中は辞書の順に並べる。1つのサービスは1回だけ出し、name か別名のどれかが前方一致なら前方一致の組に入れる。候補に表示する名前は辞書の name。サービス名が空のときは候補を出さない。候補を選ぶと サービス名・公式サイトURL（https://{ドメイン}）・カテゴリーが自動で入る（利用者は変更できる）。サービス名には辞書の name、公式サイトURLには https://{辞書の domain}（例：Netflix は https://netflix.com）、カテゴリーには辞書の category が入る。すでに入力されている公式サイトURL・カテゴリーも、候補の値で置き換える（確認は出さない）。選んだ後でサービス名や公式サイトURLを編集しても、アイコンは表示のたびに「公式サイトURL→辞書の完全一致→頭文字」の順で計算し直す。候補を選ばず自由に入力して登録してもよい。
+6. 頭文字になったときは、S-05に「公式サイトのURLを入れるとアイコンが表示されます」と案内する。案内を出すのは、サービス名が入力されていて、ドメインが決まらない、または画像の読み込みに失敗したとき。サービス名が空のときと、画像の読み込みを待っている間は出さない。公式サイトURLが入力されていても、読み込みに失敗したときは出す。
+7. 手順3でドメインが外部サービス（favicon.im）に送られることを、S-12に記載する。
+A13=出力（正常） | B13=アイコンまたは頭文字を表示する。
+A14=出力（0件） | B14=頭文字を表示する。
+A15=異常系 | B15=・favicon.imが止まっている・取得失敗：頭文字を表示する（機能は止まらない）。
+A16=同じ処理を2回したとき・競合 | B16=―
+A17=テストの場面 | B17=・完全一致・別名一致
+・部分一致は自動採用しない
+・IP・localhostのURL
+・onerrorで頭文字
+・全角・大文字小文字
+
+##### シート：図（フローチャート）
+A1=フローチャート
+A3=F-03 サブスクの登録
+A37=F-03 サブスクの削除
+A65=F-06 日次Cron（通知）
+A110=F-07 アカウント削除
+A138=F-12 Web Pushの購読登録
+A165=F-13 アイコンのドメイン決定
+
+##### シート：共通ロジック
+A1=共通ロジック（計算の詳細）
+A3=項目 | B3=内容
+A4=請求日の生成（lib/billing.ts） | B4=入力：firstBillingDate（YYYY-MM-DD）、billingCycle（月数p=1,3,6,12）、billingDayMode、期間[開始日,終了日]。
+1. k=0,1,2… として、請求日 = firstBillingDate の年月に k×p か月を足した月の日付を作る。
+2. fixedDay：日＝firstBillingDateの日。その月に無ければ月末日。endOfMonth：日＝その月の末日。
+3. 請求日が期間に入るものを集める。終了日を超えたら止める。請求日（firstBillingDate）より前の請求日は作らない。
+4. nextBillingDate＝今日以降で最小の請求日。k=0から順に調べ、今日以降になった最初の日付を返す。請求日（firstBillingDate）が今日以降なら、請求日そのものが次回請求日（2100年までの遠い未来の請求日でも求まる）。ただし、endOfMonth で請求日が月末日でないデータ（APIは400で拒否するので、通常は無い）は、手順2のとおり k=0 をその月の末日とし、次回請求日は手順1〜3の請求日の列の中の日付にする。日付は文字列でそろえて比較し、Date.parse の補正に頼らず、年・月・日を数値で扱う（日本時間）。
+A5=換算と合計 | B5=annual(sub)=price×(12/周期月数)（毎月12、3か月4、6か月2、毎年1）。A＝全サブスクのannualの和（最大200件×1,000万円×12＝2.4×10^10なので通常のNumberで安全）。月額換算合計＝Math.floor((A+6)/12)、年額換算合計＝A。
+A6=通知ID（lib/notifications.ts） | B6=notificationId = sha256(`${uid}|${subscriptionId}|${notificationType}|${daysBefore}|${targetDate}`) の小文字16進。作成は、users/{uid} とその通知イベントを読む transaction の中で行う（users/{uid} が無ければ作らない。すでにあれば何もしない）。すでにあるエラー（ALREADY_EXISTS）も無視する。
+A7=通知の送信日の判定 | B7=候補は保存された nextBillingDate と trialEndDate で探し、判定には firstBillingDate と周期から計算し直した次回請求日を使う。請求日（次回請求日）が 今日+7日 なら daysBefore=7、今日+1日 なら daysBefore=1 の billing 通知。trialEnabled が true で、trialEndDate が 今日+7日／今日+1日 なら trial_end 通知（trialEnabled が false のサブスクには、trialEndDate が残っていても作らない）。それ以外は作らない。同じサブスクで同じ日に trial_end 通知を作るときは、billing 通知は作らない（詳細_F-06 の手順6）。
+A8=ドメイン決定（lib/icon.ts） | B8=シート「図（フローチャート）」の「F-13 アイコンのドメイン決定」のとおり。正規化は NFKC → 小文字 → 空白（半角・全角）を除去。辞書は data/icon-dictionary.json の services[]（name, aliases[], domain, category）。完全一致だけ自動採用する。
+A9=カード番号様の検出 | B9=paymentMethod と memo に、カード番号様の数字（半角数字が13桁以上並び、数字の間に空白・ハイフンが1つまで入ってよい。正規表現は「API共通仕様」）があれば拒否する（400 CARD_LIKE_VALUE）。誤検知の可能性があるため、画面に理由を表示して再入力できるようにする。
+
+##### シート：テストデータ
+A1=テストデータ（基準日 2026-11-04。登録の順は表の行の順で、いちばん上がいちばん古い）
+A3=サービス名 | B3=請求額 | C3=請求周期 | D3=請求日（firstBillingDate） | E3=請求日方式 | F3=次回請求日 | G3=備考
+A4=Netflix | B4=1590 | C4=monthly | D4=2026-10-08 | E4=fixedDay | F4=2026-11-08 | G4=あと4日（今週に含まれる）
+A5=Spotify | B5=980 | C5=monthly | D5=2026-09-05 | E5=fixedDay | F5=2026-11-05 | G5=あと1日。当日のCronで1日前通知が作られる
+A6=Adobe Creative Cloud | B6=6480 | C6=monthly | D6=2026-10-11 | E6=fixedDay | F6=2026-11-11 | G6=あと7日。当日のCronで7日前通知が作られる
+A7=iCloud+ | B7=12000 | C7=yearly | D7=2025-12-01 | E7=fixedDay | F7=2026-12-01 | G7=年額。今月の請求には含まれない
+A8=ChatGPT | B8=3000 | C8=monthly | D8=2026-11-30 | E8=endOfMonth | F8=2026-11-30 | G8=trialEnabled=true・最終無料日2026-11-10。1日前通知は2026-11-09
+A10=項目 | B10=内容
+A11=期待値（S-03） | B11=今週（11/02〜11/08）：2件・2,570円　今月（11月）：4件・12,050円　月額換算合計：13,050円　年額換算合計：156,600円　7日以内の請求：Spotify（あと1日）、Netflix（あと4日）、Adobe Creative Cloud（あと7日）
+A12=期待値（Cron 2026-11-04） | B12=作られる通知：Spotifyの請求1日前、Adobe Creative Cloudの請求7日前（計2件）。ChatGPTのトライアル通知は、7日前は過去、1日前は11/09なので今日は作られない。
+A13=実行方法 | B13=ALLOW_CRON_RUNDATE_OVERRIDE=true を設定し、GET /api/cron/daily?runDate=2026-11-04 を Authorization: Bearer CRON_SECRET 付きで呼ぶ。
+
+##### シート：実装計画（段階）
+A1=実装計画（統合日に、各段階の完了条件を確かめる）
+A3=時間が足りないときの簡易版（要件定義書「2.2 時間が足りないときの簡易版」の抜粋。食い違ったときは要件定義書を正とする。統合日ごとの削る候補も要件定義書 2.2 の最後の行）
+A4=項目 | B4=標準版（現在の設計） | C4=簡易版 | D4=簡易版でも守ること
+A5=Cronの途中再開（partial） | B5=1日3回（9時台・11時台・18時台。最大59分ずれる）呼んで続きから処理する | C5=cronを1本だけ。partialなら人が手動で再実行する | D5=通知は重複しない（同じ通知は2件作られない）
+A6=端末ごとの再送防止（送信済み端末の記録） | B6=送り終えた端末へは再送しない | C6=端末ごとの記録なし（partial後の再実行で、一部の端末へ二重に送る可能性を許容） | D6=通知イベントは重複しない
+A7=全APIでの規約の版チェック | B7=全ての操作（登録・ログインの確認・アカウント削除・ログアウト時の購読解除を除く）で再同意を求める | C7=登録・ログインのときだけ確認する（画面で再同意を求める） | D7=登録時に同意と版を保存する
+A8=期限切れの削除（cleanup） | B8=Cronの最後に500件ずつ（最大10回） | C8=作らない（通知一覧は直近90日だけ表示するので、見える不具合にはならない） | D8=一覧は90日以内だけ表示する
+A9=アカウント削除の再実行 | B9=途中失敗しても、もう一度押せば完了する | C9=同じ（簡易版でも必要） | D9=データが残ったまま成功と表示しない（例外は要件定義書 F-07 の受入条件のただし書きだけ）
+A10=API・テストの量 | B10=API17本・テスト一覧75項目 | C10=API は17本のまま（減らさない）。テストは主要20件程度（登録・一覧・集計・通知・削除） | D10=他人のデータに触れない・二重登録しない・通知が重複しない
+A12=段階 | B12=名前 | C12=作るもの | D12=完了条件
+A13=1 | B13=土台と登録（11/12〜11/19） | C13=F-01・F-02・F-03（同名警告を含む）、S-01・S-02・S-04（04-09〔比嘉〕）・S-05、S-06の最小の表示、S-09の枠とログアウト、S-11・S-12の仮の画面 | D13=11/19の統合①で確かめる：APIのテスト（Emulator）で登録・編集・削除・一覧、同名警告、200件上限、他人のID=404が通る。画面で ログイン→サブスクを登録→一覧に出る→編集→削除 ができる。
+A14=2 | B14=集計と表示（11/18〜11/24） | C14=F-04（ホーム）、F-05（カレンダー） | D14=11/25のα版で確かめる：基準日2026-11-04の単体テスト（テスト一覧 No.4）で 今週2,570円・今月12,050円・月額換算13,050円・年額換算156,600円 になる。画面は実際の今日で計算するため、今日に合わせたデータで合計と一覧を確かめる。カレンダーに請求日が出る。α版の範囲はF-01〜F-05（解約案内と規約の本文を除く）。F-06 は範囲外だが、11/24 に作った Cron を手で実行して通知イベントが作られること（Firebase コンソールで見る）も、参考として見せる。S-08は範囲外。
+A15=3 | B15=通知（11/19〜11/26） | C15=F-06（Web Push購読は11/19、Cron・Push送信は11/24）、F-08（通知）、F-12（S-08・S-09の設定） | D15=12/1の統合で確かめる：基準日2026-11-04のCron実行でSpotify(1日前)とAdobe(7日前)の通知が1件ずつ作られ、S-08に出る。パソコンの Chrome に Push が届く（Web Push は Should で、削ったときは除く。スマートフォンの実機は公開後に確認：WBS 04-23・05-04）。
+A16=4 | B16=削除と仕上げ（11/25〜12/1） | C16=F-07（アカウント削除）、F-10 の検索・絞り込み・並べ替え（Want。11/26 の予備が空いたときだけ作る）、S-06の完成、S-11・S-12・S-13、全画面の空・エラー表示、全機能の統合 | D16=12/1の統合で確かめる：アカウント削除でデータが残らない。F-10 の検索・並べ替え（Want）は、11/26 の予備で作ったときだけ動くことを確かめる。全機能が統合され、12/1に本番公開できる（12/2にテストと報告書提出。スマートフォンの実機は公開後に確認）。
+A17=5 | B17=余裕があれば（12/8 の予備が空いたとき） | C17=F-13（アイコン自動表示） | D17=辞書150件でアイコンが出る。出ない場合は頭文字。
+A19=段階の順に作るのではなく、統合日（11/19・11/25・12/1）に完了条件を確かめる。それまでは仮データで並行して作る。
+各担当者はAIを使って、画面・API・テストを作成し、機能ごとのブランチから Pull Request で main へ入れる。契約は「API一覧」「型定義」。Pull Request の決まり（AI生成の記録欄、副担当の口頭確認、異常系テスト）と統合のまとめ役は「0.実装構成」の「開発の進め方」のとおり。
+簡易版への切り替えは、11/19の統合①が通らないとき、比嘉がその日に判断する。11/26 は予定のタスク（04-19・04-21 と、04-20 の予備）の日で、予定に無い Must の作業は 11/26 の予備以外には足さない（Want の F-13 は 12/8 の予備が空いたときだけ作り、F-10 の検索・並べ替えは 11/26 の予備が空いたときに作る）。12/1 の12時の判断は決まりの一覧 B-3 のとおり。Web Push（購読 04-12・送信 04-15）と F-05 は Should（遅れたら最初に削る）。削らない Must（F-04 の一覧とホームを含む）と予備の順番は決まりの一覧 B-5。
+実機のWeb Push・Vercel本番Cron・iPhoneのホーム画面追加は、担当者が実際の端末で確かめる。
+
+##### シート：テスト一覧
+A1=テスト一覧（Given / When / Then）
+A3=No. | B3=区分 | C3=Given / When / Then | D3=対象 | E3=担当
+A4=1 | B4=請求日・合計 | C4=firstBillingDate=2027-01-31・毎月・billingDayMode=fixedDay・基準日2027-02-01 / 次回請求日を計算 / 2027-02-28（基準日2027-03-01なら2027-03-31。前回丸めた日を次の基準にしない） | D4=F-03,F-04 | E4=金城
+A5=2 | B5=請求日・合計 | C5=firstBillingDate=2028-01-31・毎月・billingDayMode=fixedDay / 2月の請求日 / 2028-02-29（うるう年） | D5=F-04 | E5=金城
+A6=3 | B6=請求日・合計 | C6=firstBillingDate=2026-11-30・毎月・billingDayMode=endOfMonth・基準日2026-11-30 / 毎月の請求日 / 2026-11-30、2026-12-31、2027-01-31、2027-02-28 と毎月の末日になる | D6=F-04 | E6=金城
+A7=4 | B7=請求日・合計 | C7=テストデータ5件・基準日2026-11-04 / lib の集計の関数を直接呼ぶ（画面テストではない） / 今週2件2,570円・今月4件12,050円・月額換算13,050円・年額換算156,600円 | D7=F-04 | E7=比嘉
+A8=5 | B8=請求日・合計 | C8=月額980円と年額12,000円 / 月額換算合計 / 1,980円（A=23,760、(A+6)/12の切り捨て）。毎月980円・3か月1,000円・6か月500円のときは 1,397円（A=16,760。個別に四捨五入して足した 1,396円にはならない） | D8=F-04 | E8=比嘉
+A9=6 | B9=請求日・合計 | C9=firstBillingDate=2026-08-31・6か月の周期・billingDayMode=fixedDay・基準日2027-02-01 / 次回請求日 / 2027-02-28（該当日が無い月は月末日に丸める） | D9=F-04 | E9=金城
+A10=7 | B10=請求日・合計 | C10=サブスク0件 / ホームを開く / ¥0と［サブスクを登録する］が出る。あわせて（画面テスト。Must。F-03・04-09）：mockApi の一覧（次回請求日が同じ2件を含む3件） / S-04を開く / 並べ替えを作らなくても、次回請求日の近い順（同じ日は登録の古い順）で全件が出る | D10=F-04 | E10=比嘉
+A11=8 | B11=登録・編集・削除 | C11=必須項目が空 / 保存 / 入力欄の下にエラー、APIは呼ばれない | D11=F-03 | E11=呉屋
+A12=9 | B12=登録・編集・削除 | C12=保存ボタンを素早く2回押す / 登録 / 1件だけ登録される | D12=F-03 | E12=呉屋
+A13=10 | B13=登録・編集・削除 | C13=199件登録済み / 2件を同時に追加 / 201 Created が1件、もう1件は409 SUBSCRIPTION_LIMIT_REACHED（2件は別の名前にする）で、200件を超えない（200件登録済みのときは、2件とも409 SUBSCRIPTION_LIMIT_REACHED） | D13=F-03 | E13=金城
+A14=11 | B14=登録・編集・削除 | C14=同名のサービスが登録済み（「Netflix」が登録済みで、「netflix」と「Netflix 」〔末尾に空白〕を登録する） / 登録 / 409の警告、［登録する］で登録できる | D14=F-03,F-10 | E14=金城（判定）・呉屋（ダイアログ）
+A15=12 | B15=登録・編集・削除 | C15=firstBillingDateを変更 / 保存 / nextBillingDateが再計算される | D15=F-03 | E15=金城
+A16=13 | B16=登録・編集・削除 | C16=サブスクを削除 / 削除 / subscriptionCount-1、通知履歴は残る | D16=F-03,F-12 | E16=金城
+A17=14 | B17=登録・編集・削除 | C17=他人のsubscriptionId / GET・PATCH・DELETE / 404 | D17=F-03 | E17=金城
+A18=15 | B18=登録・編集・削除 | C18=paymentMethodにカード番号様の数字（13桁以上） / 保存 / 400 CARD_LIKE_VALUE | D18=F-03 | E18=金城
+A19=16 | B19=認証・同意 | C19=同意チェックなし / 登録 / できない。あわせて：パスワード7文字では登録できない（8文字以上。決まりの一覧 C-16） | D19=F-01 | E19=比嘉
+A20=17 | B20=認証・同意 | C20=bootstrapを同時に2回 / 呼ぶ / users/{uid}は1件、カウンタは0のまま。サブスクが3件ある利用者で bootstrap をもう一度呼んでも、カウンタは3のまま。あわせて：S-01 で bootstrap が503 になった後、同じ画面のまま入力欄と［アカウントを作成］が消え、同意のチェック2つ（チェックしたまま）と「初期設定をやり直す」（2つともチェックしているときだけ押せる）と「ログアウト」だけが出て、「初期設定をやり直す」を押すと bootstrap だけが呼ばれる（ユーザーは作り直さない）。番号なしで足す（Emulator。tests/emulator/account.test.ts）：作成で consentHistory の kind が 'create'、版を古くして呼ぶと 'reconsent'、21件目で最も古いものが消える。bootstrap を同時に2回呼んでも consentHistory は1件のまま、acceptedAt と termsAcceptedAt が同じ値。番号なしの画面テスト（C-4）：S-01 を開いたときに GET /api/account を1回だけ読み（登録の送信中は読まない）、200 なら S-03 へ replace、404 ならやり直しの表示、読めなければ「読み込めませんでした。ページを再読み込みしてください」だけ | D20=F-01 | E20=比嘉
+A21=18 | B21=認証・同意 | C21=ログインしていない / S-04を開く / S-02へ移動 | D21=F-02 | E21=比嘉
+A22=19 | B22=認証・同意 | C22=誤ったパスワード / ログイン / 「メールアドレスまたはパスワードが正しくありません」 | D22=F-02 | E22=比嘉
+A23=20 | B23=通知 | C23=基準日2026-11-04（users/{uid}（accountNotificationEnabled=true、現行の版）も直接作る。サブスクは Emulator の Firestore に直接入れ、nextBillingDate を基準日で計算した値にする。API から登録すると実際の今日で計算され、候補に入らない）/ Cron実行 / Spotifyの請求1日前とAdobe Creative Cloudの請求7日前の2件が作られる（Spotify は title「請求日まであと1日」・body「11/05・¥980 の請求予定」、Adobe Creative Cloud は title「請求日まであと7日」・body「11/11・¥6,480 の請求予定」）。あわせて：同じデータで 11/04 を実行していない状態から ?runDate=2026-11-05 で実行すると、通知は1件も作られない（11/04 の分を後から作らない） | D23=F-06 | E23=金城
+A24=21 | B24=通知 | C24=同じ日に2回Cron実行 / 2回目 / 通知は増えない（200 noop） | D24=F-06 | E24=金城
+A25=22 | B25=通知 | C25=accountNotificationEnabled=false / Cron / 通知が作られない | D25=F-06,F-12 | E25=金城
+A26=23 | B26=通知 | C26=price=0のサブスク / 請求7日前のCron / billing通知は作られない | D26=F-06 | E26=金城
+A27=24 | B27=通知 | C27=最終無料日が請求日以後 / 保存 / 400（最終無料日は請求日より前） | D27=F-08 | E27=金城
+A28=25 | B28=請求日・合計 | C28=請求日が遠い未来（2030-01-01・毎年・billingDayMode=fixedDay）・基準日2026-11-04/ 次回請求日 / 請求日そのもの | D28=F-03,F-04 | E28=金城
+A29=26 | B29=登録・編集・削除 | C29=categoryを省略 / POST / 400 VALIDATION_ERROR（detailsにcategory） | D29=F-03 | E29=金城
+A30=27 | B30=登録・編集・削除 | C30=nextBillingDateを送る / POST・PATCH / 400 UNKNOWN_FIELD | D30=F-03 | E30=金城
+A31=28 | B31=登録・編集・削除 | C31=複数の項目が誤り / POST / detailsにすべての誤りが入り、fieldは最初の項目 | D31=F-03 | E31=金城
+A32=29 | B32=登録・編集・削除 | C32=users/{uid}が無い / POST /api/subscriptions / 409 ACCOUNT_NOT_INITIALIZED（GET /api/accountは404） | D32=F-01,F-03 | E32=金城
+A33=30 | B33=登録・編集・削除 | C33=subscriptionCountが実際の件数とずれている / POST（成功） / 実際の件数で上限を判定し、countを実際の件数+1にする。409のときは書き換えない | D33=F-03 | E33=金城
+A34=31 | B34=通知 | C34=CRON_SECRETなし / 呼ぶ / 401 | D34=F-06 | E34=金城
+A35=32 | B35=通知 | C35=Push送信先が404/410 / 送信 / その購読が削除される | D35=F-06 | E35=比嘉
+A36=33 | B36=通知 | C36=Pushを使えない利用者 / Cron / アプリ内通知のみ作られS-08に出る。あわせて（画面テスト）：S-09 のスイッチ③④で、ゲートが反応するエラー（401 UNAUTHENTICATED など）のときは文を出さずに元へ戻り、それ以外の失敗では文が出る | D36=F-06,F-12 | E36=金城（Cron）・比嘉（S-09 のスイッチ③④の画面テスト。04-21）
+A37=34 | B37=通知履歴 | C37=91日前に作られた通知 / S-08 / 表示されない | D37=F-12 | E37=比嘉
+A38=35 | B38=通知履歴 | C38=未読3件 / すべて既読 / 未読数0 | D38=F-12 | E38=比嘉
+A39=36 | B39=アカウント削除 | C39=再認証が5分以内（S-09 からでも S-13 の「アカウントを削除する」からでも同じ） / 削除 / uid配下のデータとAuthが消え、同じメールで再登録できる。あわせて（画面テスト）：S-13 で⑥の処理中は⑦⑧が押せない | D39=F-07 | E39=金城（S-13 で⑥の処理中に⑦⑧が押せない画面テストは呉屋。04-19 の detail-legal.spec.ts でテスト名に No.36 を入れる）
+A40=37 | B40=アカウント削除 | C40=再認証から5分より後（lib の判定の関数に auth_time と now を渡す単体テスト。route では実際の時刻を使うので、Emulator では作らない） / 削除 / 401 REAUTH_REQUIRED | D40=F-07 | E40=金城
+A41=38 | B41=アカウント削除 | C41=削除の途中で失敗 / もう一度押す / 最初から実行されて完了する。失敗時は成功と表示しない。あわせて（画面テスト）：削除の応答が届かない（通信の失敗、または30秒の時間切れ〔setTimeout と AbortController で作り、page.clock で進める。AbortSignal.timeout は使わない〕）とき、どちらもブラウザの Push 購読が解除され（DELETE /api/push/subscribe は呼ばない）、サインアウトして S-02 に「削除が完了したか確認できませんでした…」が出る。［削除する］を押した時点（再認証の前）でオフライン（navigator.onLine=false）なら、再認証も DELETE も行わず、共通のオフラインの文を出し、サインアウトしない（ダイアログは開いたまま） | D41=F-07 | E41=金城
+A42=39 | B42=アイコン | C42=（Want。成功基準①の判定から除く）辞書にある名前（Netflix） / S-04で表示（公式サイトURLは未入力） / アイコンが出る（画像の src が https://a.favicon.im/netflix.com?throw-error-on-404=true。頭文字は出ない） | D42=F-13 | E42=金城
+A43=40 | B43=アイコン | C43=（Want。成功基準①の判定から除く）辞書にない名前 / S-04で表示（公式サイトURLは未入力） / 頭文字（画像は読み込まない） | D43=F-13 | E43=金城
+A44=41 | B44=画面 | C44=空・読み込み失敗・オフライン / 主要画面 / それぞれ文言が出て操作不能の理由が分かる | D44=全画面 | E44=各画面の担当
+A45=42 | B45=通知 | C45=Cron実行中（running・開始から10分未満） / 別のCron / 409 CRON_ALREADY_RUNNING | D45=F-06 | E45=金城
+A46=43 | B46=通知 | C46=処理が途中（partial）で止まった / 同日に再実行 / 続きから処理され、送信済みの端末へは再送されない | D46=F-06 | E46=金城（Cron）・比嘉（Push）
+A47=44 | B47=通知 | C47=ALLOW_CRON_RUNDATE_OVERRIDE=true / ?runDate=2026-11-04 / その日として実行される（falseのときは無視） | D47=F-06 | E47=金城
+A48=45 | B48=通知 | C48=nextBillingDateが今日より前のサブスク / Cron / 更新されて次回請求日が正しくなる。無限に繰り返さない | D48=F-06 | E48=金城
+A49=46 | B49=通知 | C49=trialEnabled=true・最終無料日11/10・請求日11/16・料金980円 / 11/09のCron / trial_end（1日前）だけ作られる | D49=F-06,F-08 | E49=金城
+A50=47 | B50=通知 | C50=複数端末で一部が失敗 / 送信 / partially_sent。404/410の端末は削除、401/403は残す | D50=F-06 | E50=比嘉
+A51=48 | B51=通知 | C51=同じendpointを別のuidが登録済み / POST /api/push/subscribe / 古い購読を削除して新しい持ち主に登録 | D51=F-06,F-12 | E51=比嘉
+A52=49 | B52=通知履歴 | C52=lib の関数（通知一覧の表示の判定）に now を渡し、createdAt＝now−90日 の通知と now−90日−1ミリ秒 の通知 / 表示の判定（cleanup との境目は確かめない） / now−90日 は表示し、−1ミリ秒 は表示しない | D52=F-12 | E52=比嘉
+A53=50 | B53=通知履歴 | C53=フィルター4種と cursor / 続きを取得 / 重複・欠落なし。cursorが不正なら400 | D53=F-12 | E53=比嘉
+A54=51 | B54=通知履歴 | C54=サブスクを削除した後 / 通知一覧 / subscriptionExists=false で［詳細を見る］は出ず、通知を作ったときのサービス名（serviceNameAtNotification）が表示される | D54=F-12 | E54=比嘉
+A55=52 | B55=請求カレンダー | C55=2026-11 / GET /api/calendar / 5日・8日・11日・30日にそれぞれ1件、月間12,050円。あわせて 2026-12 は、年額の iCloud+ の1日（¥12,000）を含む1日・5日・8日・11日・31日の5件、月間24,050円 | D55=F-05 | E55=呉屋
+A56=53 | B56=アカウント削除 | C56=Authユーザー削除だけが失敗 / もう一度削除 / usersが無くても完了する | D56=F-07 | E56=金城
+A57=54 | B57=アカウント削除 | C57=削除成功後に同じ呼び出し / DELETE /api/account / 401 UNAUTHENTICATED | D57=F-07 | E57=金城
+A58=55 | B58=認証・同意 | C58=削除済みアカウントのID token / bootstrap / 401（usersが作り直されない） | D58=F-01 | E58=比嘉
+A59=56 | B59=通知 | C59=期限（expireAt）が過ぎた通知イベントとcronRunsがある / Cron / 500件ずつ、1回の実行で各種類最大5,000件まで削除される。期限が未来のものは残る。partialのときは削除しない | D59=F-06 | E59=金城
+A60=57 | B60=認証・同意 | C60=保存された規約・ポリシーの版が現行と違う / bootstrap・GET /api/account・DELETE /api/account・DELETE /api/push/subscribe・Cron 以外のAPIを呼ぶ / 409 TERMS_RECONSENT_REQUIRED。画面はS-13を出す | D60=F-01,F-02 | E60=比嘉
+A61=58 | B61=検索・並べ替え | C61=（Want。成功基準①の判定から除く）テストデータ5件（画面テストでは mockApi で nextBillingDate を固定する） / S-04で検索語・カテゴリー・並べ替えを変える / 部分一致（前後の空白・大文字小文字を無視）、カテゴリーの絞り込み、次回請求日順・料金の高い順・登録日の新しい順（既定の並び〔次回請求日の近い順〕は Must で、No.58 とは別に 04-09 で確かめる。画面設計書「サンプルデータ」A19）。0件は「条件に合うサブスクはありません」 | D61=F-10 | E61=金城
+A62=59 | B62=解約案内 | C62=次回請求日まで7日以内のサブスク（画面テストでは mockApi で nextBillingDate を、page.clock で今日を固定する） / S-06を開く / 案内と［解約ページを開く］が出る。解約URLが無ければ「未登録：編集で追加できます」。8日以上先なら案内は出ない。あわせて：trialEnabled=true で最終無料日まで0〜7日なら、請求日が8日以上先でも「MM/DD で無料期間が終わります。続けないなら、その日までに解約を検討しましょう。」の案内が出る。最終無料日を過ぎたら、請求日の条件だけで決める | D62=F-03 | E62=呉屋
+A63=60 | B63=非機能 | C63=幅375px / 全画面を開く / 横スクロールが無く、ボタン・リンクは縦横44px以上（文の中のリンクを除く。画面設計書 横断仕様 B24）（要件定義書「3.1 測定方法」） | D63=全画面 | E63=金城（layout.spec.ts を 05-05 で作る。測定は比嘉の 05-06）
+A64=61 | B64=非機能 | C64=200件のサブスク（API を呼ばず scripts/seed-200.ts で、サブスクが0件のテスト用アカウントに直接入れる。API の登録と同じ項目、ID は自動の ID〔collection().doc()〕、subscriptionNotificationEnabled=false。No.62 の Cron の時間もこのデータで測る。node --env-file=$HOME/secrets/cron.env --import tsx scripts/seed-200.ts）・回線設定 Fast 4G（公開環境） / S-03・S-04・S-07を3回ずつ開く / 3回とも3秒以内に表示される（要件定義書「3.1 測定方法」） | D64=F-03,F-04,F-05 | E64=比嘉
+A65=62 | B65=非機能 | C65=公開環境・No.61 の200件を入れた状態 / 公開中の授業日に cronRuns と Firestore の使用量を見る / Cron の実行時間（cronRuns の finishedAt − startedAt）が240秒以内で completed（Vercel のログは短い時間しか残らないので使わない）（超えたら partial で止まり、300秒より前に終わる）。この200件は通知オフなので、測るのは請求日の更新と候補の検索までの時間（通知の作成と Push の送信は含まない。締切で止まる動きは No.43）。1日の読み取り5万・書き込み2万・削除2万を下回る（1日の区切りは太平洋時間の0時。Firebase コンソールの表示のとおり）（要件定義書「3.1 測定方法」） | D65=F-06 | E65=比嘉
+A66=63 | B66=認証・同意 | C66=Push 購読のある端末で、APIが401 UNAUTHENTICATED を返す / 任意の画面でAPIを呼ぶ / この端末の Push 購読がブラウザ側で解除され（サーバーのAPIは呼ばない）、サインアウトして S-02 に「ログインの有効期限が切れました。もう一度ログインしてください」と表示される（画面テスト。addInitScript で pushManager を差し替える）。あわせて：ログアウトでは、サーバーの結果（失敗・409 を含む）に関係なくブラウザの購読が解除され、onApiGate は呼ばれない。ブラウザに購読が無い端末では、ログアウトで DELETE /api/push/subscribe を呼ばない。別に、サーバーの単体テストで：Auth の一時障害（verifyIdToken が auth/internal-error）では503 TEMPORARILY_UNAVAILABLE になる | D66=F-02,F-12 | E66=金城（サーバーの単体テストは 04-01）・比嘉（画面の部分。04-05。Push の部分は 04-12）
+A67=64 | B67=通知 | C67=ブラウザに購読があり、GET /api/account の pushSubscriptionIds にこの端末の購読のIDが無い / S-09を開く（画面テスト。addInitScript で pushManager を差し替える） / ブラウザの購読が解除され、「この端末で受け取る：オフ」と表示される（IDがあれば「オン」のまま。GET /api/account は、登録済みの購読のIDを webPushId の昇順で返す） | D67=F-06,F-12 | E67=比嘉
+A68=65 | B68=登録・編集・削除 | C68=trialEnabled=true で最終無料日が空（S-05 は欄を空のまま。API は trialEndDate を null・省略。PATCH で trialEnabled を true に変えて trialEndDate を送らないときも） / 保存（POST /api/subscriptions・PATCH） / 画面は最終無料日の欄の下に「最終無料日を入力してください」で API を呼ばない。API は400 VALIDATION_ERROR（field=trialEndDate、message「最終無料日を入力してください」）で、何も保存しない | D68=F-08 | E68=呉屋（画面）・金城（API）
+A69=66 | B69=登録・編集・削除 | C69=trialEnabled=false で trialEndDate=2026-11-10 を送る（PATCH で trialEnabled を false に変えるときも） / POST /api/subscriptions・PATCH / 201（PATCH は200）で、保存された trialEndDate は null（400 にしない）。S-06 のトライアルは「対象外」。trialEndDate の形式が不正（2026-13-01）なら400 INVALID_DATE | D69=F-08 | E69=金城
+A70=67 | B70=通知 | C70=基準日2026-11-04・trialEnabled=true・最終無料日2026-11-11・請求日2026-11-20（毎月・fixedDay）・料金980円（users とサブスクは No.20 と同じく Emulator に直接入れる） / ?runDate=2026-11-04 で Cron 実行 / trial_end の通知が1件だけ作られる（daysBefore=7、targetDate=2026-11-04、priceAtNotification=null、title「無料トライアル終了まであと7日」・body「最終無料日は11/11です」）。billing の通知は作られない。あわせて：同じデータで ?runDate=2026-11-10 は trial_end（daysBefore=1）が1件作られ、?runDate=2026-11-11（最終無料日の当日）は何も作られない | D70=F-06,F-08 | E70=金城
+A71=68 | B71=通知 | C71=基準日2026-11-04・No.20 と同じデータで、Spotify（請求1日前）だけ subscriptionNotificationEnabled=false（accountNotificationEnabled=true のまま） / Cron 実行 / Spotify の通知は作られず、Adobe Creative Cloud の請求7日前の1件だけが作られる | D71=F-06 | E71=金城
+A72=69 | B72=認証・同意 | C72=Auth に無いメールアドレス（nobody@example.com）と、登録済みのメールアドレス / S-02 の①に入れて「パスワードを忘れた場合」を押す（Auth Emulator） / どちらも「再設定用のメールを送りました。届かない場合は迷惑メールフォルダを確認してください」と同じ文が出る（Auth が auth/user-not-found を返しても同じ。登録の有無を知らせない） | D72=F-02 | E72=比嘉
+A73=70 | B73=請求日・合計 | C73=lib の集計の関数に、テストデータの iCloud+ と ChatGPT の2件（基準日2026-11-04。どちらも請求が8日以上先）を渡す / 集計 / subscriptionCount=2・nextBills は空。あわせて（画面テスト）：mockApi で同じ2件 / S-03・S-04 を開く / S-03 の次の請求カードと7日以内の欄に「7日以内の請求予定はありません」、S-03 の登録数「2」と S-04 のカードの数（2枚）が一致する（S-04 に件数の欄は無い） | D73=F-04 | E73=比嘉
+A74=71 | B74=請求カレンダー | C74=lib の月の計算に、firstBillingDate=2026-08-31・3か月・fixedDay（A）と 2026-06-15・6か月・fixedDay（B）を渡す / 2026-11〜2027-02 の各月 / 2026-11 は A の11/30だけ（月末に丸める）、2026-12 は B の12/15だけ、2027-01 は0件で S-07 に「この月の請求予定はありません」、2027-02 は A の2/28。あわせて：?month=2026-13 は400 VALIDATION_ERROR（field=month）で、S-07 は今月を指定して読み直して表示する（画面テストは mockApi） | D74=F-05 | E74=呉屋
+A75=72 | B75=通知履歴 | C75=自分の未読の通知3件と、他人の通知1件（Emulator） / 他人の通知のIDで POST /api/notifications/:id/read、自分の1件を既読にした後にもう一度 read / 他人の通知は404 NOT_FOUND で何も書かない。2回目の read は保存済みの viewedAt を返し、未読に戻す方法は無い。1件を既読にした後は unreadCount=2 で、filter=unread の items も2件（S-08 ①は画面で1減らして2。S-03 ①のバッジは、S-03 を開き直したときの unreadCount で2） | D75=F-12 | E75=比嘉
+A76=73 | B76=セキュリティ | C76=@firebase/rules-unit-testing と Firestore Emulator に firestore.rules（全部拒否）を読み込み、ログインした本人の uid のクライアントを作る / ブラウザの SDK から users/{uid}・subscriptions・notificationEvents・webPushSubscriptions・cronRuns を読む・書く / すべて拒否される（assertFails）。本人の uid のデータでも同じ | D76=全機能 | E76=金城
+A77=74 | B77=通知 | C77=POST /api/push/subscribe の endpoint が http://push.example.com/a、https://192.168.0.1/a、https://localhost/a、UTF-8で1500バイトの https の URL / 登録 / どれも400 VALIDATION_ERROR（field=endpoint）で保存しない。あわせて：lastSeenAt の違う10端末が登録済みで、11台目を登録すると、lastSeenAt が最も古い1件が消えて10件のまま（同じ endpoint の上書きでは消さない） | D77=F-06,F-12 | E77=比嘉
+A78=75 | B78=通知 | C78=accountNotificationEnabled=true の利用者 / PATCH /api/account に {accountNotificationEnabled:false}、同じ値をもう一度、値が真偽値でない本文、未知のキー / 200 {accountNotificationEnabled:false} で users の値と updatedAt が変わる。同じ値は何も書かず200（updatedAt も変えない）。真偽値でないと400 VALIDATION_ERROR、未知のキーは400 UNKNOWN_FIELD。users が無いと409 ACCOUNT_NOT_INITIALIZED | D78=F-12 | E78=比嘉
+A79=― | B79=実行方法 | C79=npm test（単体テスト）、npm run test:emulator（Emulatorのテスト）、npm run test:e2e（画面のテスト。作り方は API共通仕様 B28：page.clock はブラウザの時刻だけ、サーバーの値は mockApi で固定、固定日の検証は lib の関数を直接呼ぶ）。担当はそのテストを作る人。異常系は、12/1 のテスト仕様書に機能ごとのケースを金城が全機能分足し、12/2 に各機能のテスト担当が読んで実施する（自動テストのコードは 12/3〜12/9 のバグ修正で足す）。No.60〜62の測定は比嘉（WBS 05-06）。No.61・62は公開環境で人が測る。テスト一覧は主な項目で、各機能の受入条件（要件定義書）と「詳細_F-xx」の「テストの場面」も、その機能の担当がテストにする。No.65〜75 は R15 で足した（試し実行4回目で No.69・73・74 は確かめた。ほかは未検証）。Should のテスト（Web Push の購読と送信：No.32・47・48・64・74 と、No.33・43・63 の Push の部分。F-05：No.52・71 と No.61 の S-07 の部分）は、削ったときは成功基準①（No.61 の S-07 の部分は成功基準④）の判定から除く（決まりの一覧 B-5・B-6）。番号なしのテスト（C-4 の分岐、C-11 の同意の記録）は No.17 に書いた。そのほかの細かい場面（Cron と同時の削除、後片づけの3回、Push から開いて404なら S-08、S-06 の換算額、PATCH の約束、bootstrap の409・500・登録済みメールの文、S-09 の「パスワードを再設定」、ログアウト後に戻るボタンで S-02、確認用パスワードの不一致、S-06 のトライアルの表示、入力項目の表〔要件定義書 共通ルール〕の行ごとの不正値、ダイアログの Tab・Esc・背景と PC の幅480px、ログイン済みのままの別の人のログインで Push 購読が外れること）は、12/1 のテスト仕様書に入れる | D79=全機能 | E79=―
+
+##### シート：公開前の確認事項
+A1=公開前の確認事項
+A3=項目 | B3=内容
+A4=担当者 | B4=リーダーは比嘉。機能ごとの担当は、WBS・スケジュール表と同じ。Cron を手で実行するのは金城だけ。Cron の結果は10時以降に cronRuns で確かめ（9時台が partial・failed なら12時以降にもう一度見る）、11/26 は比嘉（04-21）、12/1 は呉屋（04-23）、12/2 は呉屋（05-01）、ほかの公開中の授業日（11/26 以降）は金城がその日の2限の初め（10時以降）に見る。12/2 と 12/9 に比嘉（Firebase の持ち主）が、文書が無く配下だけ残った users（ID が斜体）と、users の無い Auth アカウント（作って1日以上）と、ID が Authentication に無い users の文書を探して手で消す（手順書 04）。
+A5=運営者名・問い合わせ先・対象年齢 | B5=運営者・問い合わせ先はEチーム（メールアドレスは書かない。卒業制作のため、個別の連絡窓口は設けない。決まりの一覧 D-5）。取得する情報には、ブラウザの種類（User-Agent）と同意の記録（同意した日時と版）を含める。主な対象は10代〜30代（年齢による利用制限はなし。18歳未満の方は保護者の同意を得て利用）。保存地域は日本（東京。Cloud Firestore）で、ログイン情報はFirebase Authentication（Google）が管理する。準拠法は日本法、施行日は2026年12月1日。S-11・S-12の見出しの下に「この文書は卒業制作のために作成したもので、法律の専門家による確認は受けていません」と書く。公開日が変わったら、施行日と版も直す。架空の個人名・連絡先、代表の連絡先は書かない。
+A6=規約・プライバシーの版 | B6=NEXT_PUBLIC_TERMS_VERSION／NEXT_PUBLIC_PRIVACY_VERSION は、公開時は 2026-12-01 を設定する（Emulatorのテストは 2026-11-04 のまま）。版を変えるときは、環境変数を変えて必ず再デプロイする（サーバーの値だけを変えると、開いたままの画面は、読み込み直すまで S-13 で409のままになる）。
+A7=実機の確認 | B7=Android・iPhone（ホーム画面に追加）でのWeb Push、Vercel本番のCron、Firebase無料枠の使用量は、公開後に実際の環境で確かめる（方法は要件定義書「3.1 測定方法」）。
+A8=公開範囲と停止日 | B8=公開範囲は授業関係者とデモだけ（公開URLは、12/1 の正式な公開まではチームの中だけで使う）。発表会の翌日（12/24）に公開を停止し、Firestore のテストデータを削除する。12/1 の12時に判断する（本番に出せなければ公開を12/3に延ばす。出せても、落ちたテスト・未統合の Pull Request があれば13時まで待ち、それでも入らない機能を公開から外して予備〔決まりの一覧 B-5 の④〕で仕上げる）。
+
+##### シート：API共通仕様
+A1=API共通仕様（全APIに共通する決まり）
+A3=項目 | B3=内容
+A4=エラーの形 | B4={ "data": null, "error": { "code": "…", "message": "…", "field"?: "serviceName", "details"?: [{ "field": "…", "code": "…", "message": "…" }], "candidates"?: [{ "subscriptionId": "…", "serviceName": "…" }] }, "requestId": "…" }
+・入力エラーは、誤りのある項目すべてを details に入れ、最初の項目名を field に入れる（画面は項目の下に赤字で表示する）。1つの項目に誤りが2つ以上あるときは、型 → 長さ → カード番号様の順で最初の1件だけを入れる（details は1項目につき1件）。
+・candidates は DUPLICATE_CANDIDATE（409）のときだけ。
+・message は画面に出す日本語の文言と同じにする。例外（画面の文が違うもの）：CONFLICT・INTERNAL_ERROR（画面は操作ごとの失敗の文。例「保存できませんでした。もう一度お試しください」）、NOT_FOUND（S-06 は「見つかりません」と［一覧へ戻る］、既読は「既読にできませんでした。もう一度お試しください」）、UNKNOWN_FIELD（欄が無いので「保存できませんでした。もう一度お試しください」。詳細_F-03 B15）、UNAUTHENTICATED（画面は「ログインの有効期限が切れました。もう一度ログインしてください」。B34）、ACCOUNT_NOT_INITIALIZED・TERMS_RECONSENT_REQUIRED（bootstrap 以外は message を出さず、S-13 に切り替える）。
+A5=400のコードの使い分け | B5=UNKNOWN_FIELD：許可項目に無いキー、およびサーバーが管理するキー（uid、subscriptionId、nextBillingDate、createdAt、updatedAt、subscriptionCountなど）を送ったとき。
+INVALID_DATE：文字列だが、YYYY-MM-DDの形式でない・実在しない日付・2000-01-01〜2100-12-31の範囲外。
+CARD_LIKE_VALUE：paymentMethod または memo にカード番号様の数字（下記）。
+VALIDATION_ERROR：上以外すべて（型が違う・必須が無い・長さ超過・価格の範囲外や小数・選択肢外・最終無料日が請求日以後・endOfMonthなのに請求日が月末日でない・JSONでない・空のボディ・termsAcceptedがfalse）。
+A6=検査の順序（POST/PATCH） | B6=1. ID tokenの確認（401 UNAUTHENTICATED）→ 2. users/{uid}があるか（無ければ409 ACCOUNT_NOT_INITIALIZED。bootstrap・GET /api/account・DELETE /api/account は除く（削除の途中失敗の続きを実行できるように））→ 2b. users の termsVersion・privacyVersion が現行の版と同じか（違えば409 TERMS_RECONSENT_REQUIRED。bootstrap・GET /api/account・DELETE /api/account・DELETE /api/push/subscribe は除く（版が古い人もログアウト時に解除できるように））→ 3. :id の形式と存在（形式が違う・無い・他人のものは404 NOT_FOUND）→ 4. Content-TypeがJSONで、JSONとして読める（400 VALIDATION_ERROR）→ 5. 未知のキー（400 UNKNOWN_FIELD）→ 6. 必須項目・各項目の検証（誤りをすべて集めて400。error.code は最初の誤りのcode、field は最初の項目。項目の順は要件定義書「共通ルール」の入力項目の表の順）→ 7. 項目間の検証（6で誤りが1つもないときだけ行う。PATCHは、保存済みの値に変更を重ねた全体で行う。誤りの field と message は下の表）→ 8. transaction内で、同名の確認（409 DUPLICATE_CANDIDATE。confirmDuplicate=trueなら省略。POSTだけ）→ 9. 件数の確認（409 SUBSCRIPTION_LIMIT_REACHED。POSTだけ）→ 10. 書き込み。GET のクエリ（month、filter・limit・cursor）の検証は、2b の後に行う（400 VALIDATION_ERROR。ログインしていなければ、クエリが不正でも401）。
+A7=HTTPステータス | B7=POST /api/account/bootstrap：200（新規作成でも既存でも同じ。常に {uid, initialized:true}）。GET・PATCH：200。POST /api/subscriptions：201。POST /api/push/subscribe・POST /api/notifications/:id/read・POST /api/notifications/read-all：200。DELETE /api/subscriptions/:id：204（2回目は404）。DELETE /api/push/subscribe：204。DELETE /api/account：200。ボディが無いのは204だけ。
+A8=リクエスト | B8=本文を受け取るAPI（POST /api/account/bootstrap、POST /api/subscriptions、PATCH、POST・DELETE /api/push/subscribe、DELETE /api/account）だけが対象：Content-Type: application/json（無い場合は400 VALIDATION_ERROR）。ボディは100KB以下（超えたら400 VALIDATION_ERROR、message「入力内容が大きすぎます」）。ボディが空なら400。文字コードはUTF-8。
+本文を受け取らないAPI（GET、POST /api/notifications/:id/read、POST /api/notifications/read-all、DELETE /api/subscriptions/:id）は本文を見ない。
+A9=アカウントAPIの応答 | B9=GET /api/account の email は users/{uid}.email（bootstrap のときに ID token の email クレームから保存した値）。PATCH /api/account は {accountNotificationEnabled} を返す。
+A10=認証 | B10=Authorization: Bearer <ID token> を firebase-admin の verifyIdToken で確認する（通常は失効の確認をしない）。POST /api/account/bootstrap と DELETE /api/account は checkRevoked=true で確認する（削除済みアカウントのtokenで users が作り直されるのを防ぐ）。DELETE /api/account はさらに auth_time が5分以内かも確認する。emailは ID token の email クレームから取る（無ければ空文字）。画面の api() は、呼ぶたびに Firebase の currentUser.getIdToken() で ID token を取る（文字列を持ち続けない。期限が近ければ Firebase が自動で更新する）。api() に既定の時間切れは無い（timeoutMs を渡すのは DELETE /api/account の30秒だけ。応答が返らないときは、ブラウザの通信エラーか Vercel の関数の時間の上限で終わる）。
+A11=規約の版 | B11=サーバーは、bootstrap の本文の版が環境変数と一致するかを確認する。さらに、bootstrap・GET /api/account・DELETE /api/account・DELETE /api/push/subscribe・Cron 以外のすべてのAPIで、users/{uid} に保存された termsVersion・privacyVersion が現行の版（環境変数）と同じかを確認し、違えば409 TERMS_RECONSENT_REQUIRED（message「利用規約が更新されました。もう一度同意してください」）を返す。users は検査の順序2で読むので、版の確認のための追加の読み取りはない（GET /api/dashboard も同じ。集計では users を読まない）。画面はこの409と 409 ACCOUNT_NOT_INITIALIZED を受けたら（bootstrap以外）、同意の確認画面（S-13）へ切り替える（onApiGate は S-01・S-02 でも反応するが、Gates は (auth) の画面〔S-01・S-02〕では判定せず、登録の途中で S-13 に切り替えない。B71）。比較は完全一致のみ（新旧の大小は判断しない）。環境変数（版）が未設定・空のときは、bootstrap と同じく、対象の全APIが常に409を返す。users に版が保存されていない場合も409。入力中などに409を受けて S-13 に切り替わるときは、画面の入力内容は破棄され、同意が済むとホーム画面へ移動する。
+A12=日時の形 | B12=日付だけの値は "YYYY-MM-DD"（日本時間）。作成・更新などの日時は、APIサーバーの時刻を Firestore の Timestamp で保存し、JSONでは ISO 8601 の文字列（UTC、例 "2026-11-04T01:00:00.000Z"）で返す。「今日」は日本時間（Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Tokyo'})）で求め、lib/clock.ts に置いてテストで差し替えられるようにする。
+A13=IDと requestId | B13=subscriptionId は Firestore の自動ID（英数字20文字）。形式が ^[A-Za-z0-9]{20}$ でなければ、Firestoreに問い合わせず404（予約されたIDや記号を含むIDで500にならないようにする）。requestId は crypto.randomUUID()。
+A14=サブスクのJSON | B14=DB設計書の物理名のまま。uid は含めず、subscriptionId を含める。nextBillingDate は毎回、請求日と周期から計算した値。保存された請求日・周期・請求日方式が壊れていて計算できないときは、500にせず、保存値の nextBillingDate をそのまま返す（利用者が編集・削除できるようにするため）。
+A15=任意項目の空の扱い | B15=任意の文字列項目は、null または空文字 "" を null として保存する（PATCHで消去できる）。必須項目に null を送ると400。真偽値の項目（trialEnabled・subscriptionNotificationEnabled・confirmDuplicate）に null を送っても400。trialEndDate は、null と空文字を null として扱う。serviceName は、前後の空白を除いた値を保存して返す。trialEnabled=false のとき trialEndDate は、送られていても null にして保存する（400にしない）。trialEnabled=true で最終無料日が今日より前でも許可する（検証は「請求日より前」のみ）。POSTで任意項目のキーを省略したときは、既定の値（文字列の項目は null、trialEnabled は false、subscriptionNotificationEnabled は true）で保存する。
+A16=同名の判定 | B16=サービス名の前後の空白（全角空白を含む）を除き、英字A-Zを小文字にして比べる（全角英字の正規化はしない。アイコン辞書の正規化とは別）。POSTのときだけ確認する。PATCHで名前を変えたときは確認しない。同名の確認と件数の確認は、同じ transaction の中で、全サブスク（最大200件）を読んで行う。読み取った数を現在の件数とする。登録が成功したときは、subscriptionCount を「読み取った数+1」にする（ずれていても直る）。409を返すときは何も書かない（ずれは直さない）。
+A17=カード番号様の検出 | B17=paymentMethod と memo だけが対象。次の正規表現に一致する部分があれば拒否する：/\d(?:[ \u3000\-]?\d){12,}/ （半角数字が13桁以上並び、数字の間に半角空白・全角空白(\u3000)・半角ハイフンが1つまで入ってよい）。20桁以上も拒否する。全角数字は対象外。数字の間に文字がある場合（例：「1000円 2000円」）は連続とみなさない。
+A18=一覧の並び | B18=GET /api/subscriptions は作成日時の昇順。並べ替えは画面側で行う。
+A19=項目間の検証の誤り | B19=endOfMonthなのに請求日が月末日でない：field=billingDayMode、code=VALIDATION_ERROR、message「『毎月末日』は請求日が月末日のときだけ選べます」。トライアル中で最終無料日が請求日以後：field=trialEndDate、code=VALIDATION_ERROR、message「最終無料日は請求日より前の日付を入力してください」。トライアル中で最終無料日が無い：field=trialEndDate、message「最終無料日を入力してください」。
+A20=PATCHの約束 | B20=必須項目は null にできない。送られた項目だけを変える。変更のたびに nextBillingDate を計算し直す。billingDayMode=endOfMonth は、変更後の請求日が月末日のときだけ許可する。保存済みが endOfMonth で、請求日を月末日でない日に変えるときは、同じ本文に billingDayMode=fixedDay を入れる（無ければ400、field=billingDayMode）。trialEnabled を true に変えるときは、同じ本文に trialEndDate を入れる（無ければ400、field=trialEndDate）。保存済みが trialEnabled=false のとき、trialEndDate だけを送っても null のまま保存する（400にしない）。値が同じ項目だけを送ったときも書き込み、updatedAt を更新する。保存済みの請求日・周期・請求日方式が壊れていて、今回の変更で直らないときは400（その項目の誤り）。
+A21=Firestoreのエラーの変換 | B21=gRPCコード 10（ABORTED）・6（ALREADY_EXISTS）→409 CONFLICT／8（RESOURCE_EXHAUSTED）→500 RESOURCE_EXHAUSTED／14（UNAVAILABLE）→503 TEMPORARILY_UNAVAILABLE／その他→500 INTERNAL_ERROR。
+A22=ログ | B22=5xxのエラーは console.error に requestId・code・HTTPステータスだけを出す。メールアドレス、メモ、ID token、Pushの購読情報は出さない。
+A23=Push購読 | B23=GET /api/account は、users/{uid}/webPushSubscriptions を1回読み（全部。ふつうは最大10件、まれに11件）、pushSubscriptionCount（件数）と pushSubscriptionIds（ドキュメントID＝webPushId の一覧。webPushId の昇順。読んだ全部を返す）を返す。endpoint・p256dh・auth は返さない。1人あたり最大10端末で、登録の前に件数が10件以上なら、9件になるまで lastSeenAt の古い順に削除してから保存する（lastSeenAt が無いものは最も古い扱い。同じときは webPushId の昇順。ふつうは11台目の登録で最も古い1件が消える）。すでにある endpoint の上書きでは削除しない（別の端末から同時に登録すると、まれに一時的に11件になる。次の登録で10件以下に戻る。既知の制限。11件の間も GET /api/account は全部を返す）。上書きでは createdAt を変えず、p256dh・auth・userAgent・lastSeenAt を新しくする。ほかのuidの同じ endpoint の削除、件数の確認、保存は、1つの transaction で行う。この transaction の中で users/{uid} も読み、無くなっていたときは409 ACCOUNT_NOT_INITIALIZED にして保存しない（アカウント削除と重なったときに、削除の後から購読を保存しないため）。endpoint は https だけを受け付け、IPアドレス・localhost・内部ホスト・UTF-8で1499バイト超は400 VALIDATION_ERROR（サーバーが任意のURLへ送信しないため）。DELETE /api/push/subscribe は本文の endpoint が必須（無い・文字列でない・空文字は400 VALIDATION_ERROR、field=endpoint。https かどうかなどは調べない。未知のキーは400 UNKNOWN_FIELD）。
+A24=通知一覧 | B24=limit の既定は20（1〜50）。cursor は「作成日時のミリ秒_通知ID」で、形式が不正なら400 VALIDATION_ERROR。unreadCount は count() 集計（viewedAt==null かつ createdAt>=90日前。複合インデックスが1つ必要）。各通知に subscriptionExists（boolean）を付ける（サブスクIDの形が ^[A-Za-z0-9]{20}$ でない通知は、問い合わせずに false）。unreadCount は、filter・cursor に関係なく、直近90日の未読の全体（S-03 のバッジと同じ数）。応答の型は NotificationListDto { items: NotificationDto[]; nextCursor: string | null; unreadCount: number }、filter の型は NotificationFilter = 'all' | 'unread' | 'billing' | 'trial_end'（型定義と同じく lib/types.ts に置く）。
+A25=カレンダー | B25=GET /api/calendar の month は YYYY-MM。省略したときは日本時間の今月。形式が不正なら400 VALIDATION_ERROR。
+A26=Cronの応答と時間 | B26=応答は {status:'completed'|'partial'|'noop', createdCount, sentCount, failedCount}（HTTP 200）。件数は同じ日の再実行で加算する。内部締切は240秒、関数の最大実行時間は300秒。Push送信は同時に最大10、1端末あたりの最悪は 10秒×2＋1秒＝21秒。利用者ごとの処理の前と、通知イベント1件の送信の前に締切を確認する（通知が3件ある利用者を締切の直前に始めると 3×21＝63秒かかり、関数の上限300秒を超えうるため）。cronRuns/{runDate} には updatedAt を持たせ、再実行のたびに更新する。
+A27=古いID token | B27=削除・無効化されたアカウントのID tokenは、最大1時間は通常のAPIで通る（checkRevoked をしないため）。許容するリスクとして、bootstrap と DELETE /api/account だけは失効を確認する。
+A28=テストの差し替え口 | B28=テストで差し替えたいもの（Pushの送信関数、現在時刻、ID token の検証関数〔verifyIdToken。503 の試験用〕、Cron の締切の時刻〔partial の試験用〕）は、lib/ の関数の引数（依存注入）で渡す。画面テスト（Playwright）の page.clock はブラウザの時刻だけを固定するので、サーバーが計算する値（nextBillingDate）と、それで決まる S-04 の既定の並び（並べるのは画面）は、mockApi の応答で固定する。S-06 の解約案内の0〜7日は画面が計算するので（今日は lib/clock.ts の日本時間の今日）、mockApi の nextBillingDate・trialEndDate と page.clock の今日の両方で決める。固定日（基準日2026-11-04）の検証は、lib の関数を直接呼ぶテストで行う（画面テストでは行わない）。Push の画面テスト（No.63・64）は、addInitScript でブラウザの pushManager を差し替え、偽の購読を返す。サーバー側の 503 の検証は単体テストで行う（画面テストと分ける）。
+A29=Emulatorでのテスト | B29=firebase.json に auth（9099）と firestore（8080）を書き、subwatch/ で firebase emulators:exec --config ../firebase.json --project demo-subwatch --only auth,firestore "…" で実行する。ID tokenは Auth Emulator の POST http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake（body: {email, password, returnSecureToken:true}）で得る。Admin SDK は FIREBASE_AUTH_EMULATOR_HOST と FIRESTORE_EMULATOR_HOST を設定すると Emulator に接続する。route handler を直接呼ぶ形でテストしてよい。
+A30=対象外 | B30=2100年以降の運用（日付は2100-12-31までしか許可しない）。subscriptions の uid 項目は collectionGroup の検索結果から持ち主を知るために持つ（Cronは ref.parent.parent.id でも取れる）。
+A32=エラーのmessage（APIが返す日本語。画面の文言と同じ）
+A33=コード | B33=message
+A34=UNAUTHENTICATED | B34=ログインしてください（画面は、この端末の Push 購読をブラウザ側で解除し（サーバーのAPIは呼ばない。待つのは最大3秒で、失敗しても続ける）、サインアウトしてからS-02へ移動し、「ログインの有効期限が切れました。もう一度ログインしてください」と表示する）
+A35=REAUTH_REQUIRED | B35=もう一度パスワードを入力してください
+A36=INVALID_CRON_SECRET | B36=認証に失敗しました
+A37=NOT_FOUND | B37=見つかりません（サブスクのときは「サブスクが見つかりません」）
+A38=ACCOUNT_NOT_INITIALIZED | B38=アカウントの初期設定が完了していません
+A39=VALIDATION_ERROR | B39=項目ごとの文言（要件定義書「共通ルール」の入力項目の表の『エラー時の表示』）。項目に紐づかないときは「入力内容を確認してください」
+A40=UNKNOWN_FIELD | B40=不明な項目が含まれています
+A41=INVALID_DATE | B41=正しい日付を選んでください
+A42=CARD_LIKE_VALUE | B42=カード番号は入力できません
+A43=DUPLICATE_CANDIDATE | B43=『{サービス名}』はすでに登録されています。別の契約として登録しますか？
+A44=SUBSCRIPTION_LIMIT_REACHED | B44=登録できるサブスクは200件までです
+A45=TERMS_RECONSENT_REQUIRED | B45=利用規約が更新されました。もう一度同意してください
+A46=CONFLICT | B46=競合しました。もう一度お試しください
+A47=CRON_ALREADY_RUNNING | B47=すでに実行中です
+A48=DELETE_FAILED | B48=削除できませんでした。もう一度お試しください
+A49=INTERNAL_ERROR | B49=処理に失敗しました。もう一度お試しください
+A50=RESOURCE_EXHAUSTED | B50=一時的に利用できません。時間をおいて再試行してください
+A51=TEMPORARILY_UNAVAILABLE | B51=一時的に利用できません。時間をおいて再試行してください
+A53=入力・応答・エラーの細部
+A54=項目 | B54=内容
+A55=1. 現在時刻 | B55=lib の関数が today（now）を引数で受け取る。route.ts は実際の今日を渡す。固定日付（基準日2026-11-04）の検証は lib の関数を直接呼ぶテストで行い、route経由のテストは実際の今日からの相対日付で書く。環境変数やヘッダーで今日を上書きする口は、本番に残さないため作らない（Cronの ?runDate だけは別。ALLOW_CRON_RUNDATE_OVERRIDE が true のときのみ）。
+A56=2. PATCH /api/account | B56=users/{uid} が無ければ409 ACCOUNT_NOT_INITIALIZED（検査の順序2の対象）。保存された値と同じ値を送ったときは、何も書かずに200で同じ値を返す（updatedAt も変えない）。変えるときに書くのは accountNotificationEnabled と updatedAt だけ。
+A57=3. 項目ごとのエラー文言 | B57=要件定義書「入力項目」の表に無い項目（trialEnabled、subscriptionNotificationEnabled、confirmDuplicate、accountNotificationEnabled、bootstrapの本文）の message は「入力内容を確認してください」。paymentMethod が80文字を超えたときは「支払方法は80文字以内で入力してください」。serviceName は、空のときも100文字を超えたときも「サービス名を入力してください」。websiteUrl・cancelUrl は、2048文字を超えたときも「http:// か https:// から始まるURLを入力してください」。型が違うとき（例：price に文字列）も、その項目の表の文言を返す。price は JSON の数値だけ、trialEnabled・subscriptionNotificationEnabled は真偽値だけを受け付ける。
+A58=4. 日付の検証 | B58=文字列でない日付は VALIDATION_ERROR（message「正しい日付を選んでください」）。文字列だが形式・実在・範囲が不正なら INVALID_DATE。請求日（firstBillingDate）は、空文字なら INVALID_DATE、キーが無い・null なら VALIDATION_ERROR（message はどちらも「正しい日付を選んでください」）。trialEnabled=false のときも、trialEndDate の形式は検証する（不正なら INVALID_DATE）。正しい値なら null にして保存する。項目間エラーが複数あるときも、すべて details に入れる（表の順：billingDayMode → trialEndDate）。
+A59=5. 本文の検査の順序 | B59=Content-Type（application/json。charset などのパラメータ付きも許可）→ サイズ → 空 → JSON/UTF-8 として読めるか → オブジェクトか（配列・null は400）。100KB は 100×1024 バイト。
+A60=6. 同名の警告 | B60=DUPLICATE_CANDIDATE の message の {サービス名} は、入力された名前（前後の空白を除いたもの）。candidates には、同名の既存サブスクをすべて入れ、serviceName は保存されている名前。candidates の並びは作成日時の昇順（同じ時刻はドキュメントIDの昇順）。confirmDuplicate=false は、付けていないのと同じに扱う（400にしない）。画面は、警告ダイアログの［登録する］のときだけ confirmDuplicate=true を付け、ほかのときはキーごと送らない。
+A61=7. PATCH中に削除されたとき | B61=存在確認（手順3）で1回読み、書き込みの transaction でもう一度読む。無ければ404。項目間の検証は transaction 内の最新の値で行う。
+A62=8. 同時に送られたPOST | B62=同じ内容のPOSTが同時に2件届いたとき、201は1件、もう1件は409（同名）になる（transactionで直列化される）。直列にするため、POST /api/subscriptions と DELETE /api/subscriptions/:id は、transaction の中で users/{uid} も読む。transaction の中で users/{uid} が無くなっていたときは、POST は409 ACCOUNT_NOT_INITIALIZED、DELETE はサブスクだけを削除する。DELETE は、transaction の中でサブスクも読み直し、すでに無ければ 404 NOT_FOUND にして subscriptionCount を減らさない（2回目の削除や、2端末の同時の削除で二重に減らさないため）。
+A63=9. 任意の文字列 | B63=前後の空白は取り除かない。空文字だけ null にする。文字数はコードポイント数で数える。URL は /^https?:\/\//i で始まるかだけを確認する（URLとしての解釈はしない）。S-05 の入力の検証と、S-06 がリンクにするかの判定も、同じ式を使う。メールアドレスの形式（S-01 ①・S-02 ③）は API では検証しない。画面の入力欄の type="email" と Firebase Authentication の判定（auth/invalid-email）に任せ、独自の正規表現は作らない。
+A64=10. subscriptionCount | B64=DELETE で現在値が0なら、-1にしない（max(0, 現在値-1)）。
+A65=11. SUBSCRIPTION_LIMIT_OVERRIDE | B65=0〜199の整数だけ有効。それ以外（不正・200以上）は無視して200にする。上限を小さくしたときも、409 の message は「登録できるサブスクは200件までです」のまま。
+A66=12. ログ | B66=5xx だけ console.error に出す（4xx は利用者の入力エラーで頻繁なため出さない）。
+A67=13. 一覧の並び | B67=作成日時の昇順。同じ時刻のときはドキュメントIDの昇順。
+A68=14. 未知のキー | B68=複数あるときは、すべて details に入れ、field は本文の順で最初のキー。
+A69=15. bootstrap | B69=本文の検査（400。termsAccepted が false など）→ 版の一致（409）の順。termsVersion・privacyVersion が無い・文字列でないときは400 VALIDATION_ERROR、文字列だが現行の版と違うとき（空文字を含む）は409。details の順は termsAccepted → privacyAccepted → termsVersion → privacyVersion。環境変数の版が未設定のときは、常に409 TERMS_RECONSENT_REQUIRED。版が古いユーザーの再同意では、版と同意日時、updatedAt を更新し、email は更新しない。作成と再同意では、同じ transaction の中で consentHistory（追記だけ。最大20件で古いものから消す）に1件足す。要素の kind は作成＝'create'・再同意＝'reconsent'（サーバーが決める）。acceptedAt は transaction の前に Timestamp.now() で1回作り、termsAcceptedAt と同じ値にする（配列の中で serverTimestamp は使わない）。
+A70=16. 保存するドキュメント | B70=subscriptions のドキュメントには uid と subscriptionId（＝ドキュメントID）の両方を持たせる。APIの応答では uid を除く。
+A71=17. ID tokenのエラー | B71=ID tokenの検証（firebase-admin の verifyIdToken）の結果の分け方：401 UNAUTHENTICATED は、token が無い・形式が違う（auth/argument-error）、期限切れ（auth/id-token-expired）、失効（auth/id-token-revoked）、ユーザーが無い・無効（auth/user-not-found・auth/user-disabled）のとき。ユーザーが無い・無効が分かるのは checkRevoked=true で検証する bootstrap と DELETE /api/account だけ（ほかの API は B27 のとおり最大1時間通る）。それ以外のエラー（通信の失敗、auth/internal-error などAuthの一時障害）は503 TEMPORARILY_UNAVAILABLE を返し、画面はサインアウトせず「一時的に利用できません。時間をおいて再試行してください」を出す。API の結果を受ける口（onApiGate）が反応するのは、401 UNAUTHENTICATED・409 TERMS_RECONSENT_REQUIRED・409 ACCOUNT_NOT_INITIALIZED の3つだけで、S-01・S-02 でも反応する（401 REAUTH_REQUIRED、503、ほかの409では反応しない）。画面を切り替える部品（Gates）は、(auth) の画面（S-01・S-02）では判定しない（登録の途中で S-13 に切り替えない）。ログアウトの購読解除の呼び出し（DELETE /api/push/subscribe）は onApiGate を呼ばない（skipGate）。bootstrap の 409 でも onApiGate を呼ばない（S-01・S-13 が自分で扱う。詳細_F-01 の手順7）。
+A73=ホーム・カレンダー・検索の細部
+A74=項目 | B74=内容
+A75=1. 登録数 | B75=GET /api/dashboard の subscriptionCount は、読み取ったサブスクの実件数（users.subscriptionCount ではない）。S-03の登録数とS-04のカードの数が常に一致する（S-04 に件数の欄は作らない。受入条件の「一覧の件数」はカードの数）。請求日・周期・請求日方式・料金が壊れていて計算できないサブスクは、今週・今月・月額換算・年額換算と nextBills に入れず、subscriptionCount にだけ数える（500にしない）。
+A76=2. 7日以内の請求が無いとき | B76=登録が1件以上あっても7日以内の請求が無ければ、次の請求カードは「次の請求予定／7日以内の請求予定はありません」、一覧の欄も「7日以内の請求予定はありません」。
+A77=3. カレンダー | B77=month の年は2000〜2100。空文字（?month=）は不正（400、field=month）、省略は今月。不正のときの message は「入力内容を確認してください」で、details にも month を入れる。month が2つ以上あるときは最初の1つだけを見て、ほかのクエリは無視する。days は請求のある日だけを日付の昇順、同じ日の items は作成日時の昇順。請求日・周期・請求日方式・料金が壊れたサブスクは、500にせず集計から外す（GET /api/dashboard と同じ基準。同じ月の S-03「今月の予定額」と S-07「月間請求予定額」は同じになる）。月を切り替えたとき選ぶ日は、今月なら今日、ほかの月なら1日。
+A78=4. nextBills | B78=今日（daysLeft=0）から7日後（daysLeft=7）までを含む。同じ日は作成日時の昇順（同じ時刻はドキュメントIDの昇順）。
+A79=5. 未読件数 | B79=viewedAt が null で、createdAt が「現在時刻−90日」以後の件数。ベルのバッジは99を超えたら「99+」。通知イベントは、作成のときに viewedAt を null の項目として保存する（項目が無いと、未読件数の検索に合わない）。
+A80=6. 読み込み失敗の文言 | B80=機能ごとの文言があるものはそれを使い、ほかの画面は見出し「読み込めませんでした」と「もう一度お試しください」を使う（ホーム：「請求予定を読み込めませんでした。もう一度お試しください」、カレンダー：「カレンダーを読み込めませんでした。もう一度お試しください」、通知：「通知を読み込めませんでした。もう一度お試しください」）。
+A81=7. S-04の検索 | B81=サービス名の部分一致。前後の空白（全角空白を含む）を除き、英字の大文字小文字を区別しない。全角英数と半角英数は同一視しない。
+A83=通知・Cron・Pushの細部
+A84=項目 | B84=内容
+A85=1. Cronの応答 | B85=他のAPIと同じく { data: {status, createdCount, sentCount, failedCount}, error: null, requestId } で返す。件数は cronRuns に記録した、その日の累計（partialの続きの再実行で加算）。noop のときは 0,0,0。
+A86=2. 件数の数え方 | B86=sentCount＝sent と partially_sent の通知の数。failedCount＝failed の通知の数＋refresh_stale で想定外だった件数（1回の実行の中では、同じサブスクを1回だけ数える。同じ日の再実行では、更新できない同じサブスクを重ねて数えることがある）。skipped はどちらにも数えない。404/410で削除した端末は『失敗』として数える（全端末が410なら failed、一部成功なら partially_sent。以後 pending ではないので再送しない）。
+A87=3. Cron認証と runDate | B87=CRON_SECRET は timingSafeEqual で比較し、未設定なら常に401。認証（401）が先。ALLOW_CRON_RUNDATE_OVERRIDE が文字列 'true' のときだけ ?runDate を受け付け、不正な日付（?runDate= の空を含む）は400 INVALID_DATE（field=runDate）。'TRUE'・'1' などは無視する。runDate 以外のクエリ（vercel.json の2本目・3本目の path を /api/cron/daily?slot=2・?slot=3 に変えたときの slot など）は読まずに無視し、400 にしない（手順書 02 の 5・04 の B-2）。
+A88=4. 再開始と締切 | B88=running 10分以上・failed・partial から再開始するときは、そのたびに startedAt を今の時刻にする（expireAt＝startedAt+90日）。件数は引き継いで加算する（例外で failed になった実行も、それまでに作った通知の数を createdCount に加算する）。締切（240秒）は、refresh_stale の各ラウンドの前、イベント作成の1件ごと、Push の利用者ごとの前と通知イベント1件の送信の前（lib/cron.ts の Cron の処理が行う。route は認証と呼び出しだけ〔0.実装構成 B18〕）に確認し、達したら partial で終える。
+A89=5. 壊れたデータ・エラー | B89=firstBillingDate が壊れたサブスクは、refresh_stale では failedCount に数えて更新せず、events では飛ばす（firstBillingDate・billingCycle・billingDayMode のどれかが壊れていれば、billing も trial_end も作らない。price が数でない・0以下のときは billing だけ作らない）。refresh_stale の更新（1件ずつ。読んだ文書の updateTime を前提条件に付ける）で、途中で消えたサブスク（NOT_FOUND）と、前提条件に合わなかったサブスク（FAILED_PRECONDITION。その間に編集された）は無視し（failedCount に数えない）、ほかのエラーは失敗とする。先頭から200件すべてが更新できないと打ち切る（まれな場合。ログに残す）。「1件も更新できなかった」の判定では、途中で消えたサブスクと、前提条件に合わなかったサブスクは進んだものと数える。取得が200件より少なかった回で、繰り返しを終える。通知イベントの create が ALREADY_EXISTS 以外のエラーのときは、その実行を failed にして、変換表のステータスを返す（RESOURCE_EXHAUSTED・その他は500、UNAVAILABLEは503、ABORTEDは409）。VAPID鍵が未設定のときは再試行せず送信失敗にする（Cron は止めない）。通信エラー（statusCodeなし）は5xx扱いで1回再試行する。
+A90=6. webPushSentAt・LastErrorCode | B90=sent・partially_sent・failed のときは送信を終えた時刻を webPushSentAt に入れる（skipped は null）。webPushLastErrorCode は失敗があったときだけ、直近のコード（値は DB設計書 テーブルNo.3 の webPushLastErrorCode）を入れる。直近は、失敗が分かった順で最後のもの。再試行で成功した端末のコードは残さない。
+A91=7. Push購読API | B91=POST /api/push/subscribe の成功は200 {enabled:true}。検査の順序は他のAPIと同じ（401→409→本文）。keys.p256dh・auth は1〜512文字、userAgent は512文字以内（null・空文字・省略は null。画面は512文字までに切って送る）。未知のキーは400 UNKNOWN_FIELD（keys の中の p256dh・auth 以外も同じ。field は「keys.名前」）。項目の誤りは400 VALIDATION_ERROR で、field は endpoint・keys（オブジェクトでないとき）・keys.p256dh・keys.auth・userAgent、details はこの順、message は「入力内容を確認してください」。endpoint は https のみで、IPアドレス（IPv4・IPv6・数字だけのホスト）、localhost・*.localhost、ドットを含まないホスト名、*.local・*.internal・*.intranet・*.lan・*.home・*.corp・*.localdomain、URL内の認証情報、UTF-8で1499バイト超を拒否する（400 VALIDATION_ERROR、field=endpoint）。1499バイトは、Firestore が検索の値に使える文字列の上限（1500バイト以上は検索できない）。
+A92=8. 通知一覧の入力 | B92=filter・limit・cursor が不正なら400 VALIDATION_ERROR（field=項目名、message「入力内容を確認してください」）。?limit=・?filter=・?cursor=（空）も400。省略したときは filter=all、limit=20、cursor なし（最初のページ）とする。誤りが複数のときは、filter・limit・cursor の順に details に入れ、field は最初の項目。limit は10進の数字だけ（先頭の0・空白・小数・指数は不可）の1〜50。cursor は ^\d{1,16}_[A-Za-z0-9]{1,128}$ に合い、ミリ秒が Timestamp の上限（253402300799000）以下のものだけ（形が正しければ、その通知が無くても200で、その位置より古い側を返す）。メモリ上で絞り込むときは、100件ずつ読み、条件に合うものが limit+1 件そろうまで繰り返す。
+A93=9. 既読API | B93=通知IDが64桁の小文字16進でなければ、Firestoreを読まず404。他人の通知・存在しない通知も404。90日より古い通知も既読にできる。既読にするときは、viewedAt と updatedAt に API サーバーの時刻を入れる。すでに既読なら何も書かず、保存されている viewedAt を返す。read-all の updatedCount は、その呼び出しで既読にした件数。read-all は、1回の呼び出しで400件×4回（1,600件）までで打ち切る（1人の直近90日の通知は多くても約1,400件〔月額のサブスク200件×90日で約7件〕のため。無料枠の書き込み2万件を1回で使い切らない）。read-all の検索は、未読件数と同じ条件（viewedAt==null かつ createdAt>=90日前）で、並びは指定しない（未読件数と同じ複合インデックスを使う）。
+A94=10. 通知の時刻と並び | B94=S-08の時刻は日本時間の HH:mm（通知の作成時刻）。作成日時（ミリ秒）の降順で、同じ瞬間に作った通知は通知IDの降順。続きは［さらに読み込む］ボタン。種類（請求・トライアル）を小さなチップで表示する。
+A95=11. S-09のPush状態 | B95=対応端末で購読が無いときは「この端末で受け取る：オフ」。iPhoneでホーム画面に追加していないときは、状態「この環境では利用できません」で、スイッチを押すと「ホーム画面に追加すると利用できます」と表示する。許可が拒否されているときは「ブラウザの設定で通知を許可してください」。許可のダイアログを閉じただけ（拒否でも許可でもない）のときも同じ文を表示し、状態は「この端末で受け取る：オフ」のままにする（「許可されていません」は、ブラウザの許可が拒否のときだけ）。iPhone（iPad を含む）で「ホーム画面に追加していない」と判定するのは、Service Worker・PushManager・Notification のどれかが無く、ホーム画面から開いていないとき。manifest.webmanifest は、name・short_name を「SubWatch」、start_url「/」、scope「/」、display「standalone」、background_color・theme_color、icons を 192 と 512 にし、app/layout.tsx で manifest と apple-touch-icon を読み込む（display が standalone でないと、iPhone はホーム画面に追加しても Push を受け取れない）。Service Worker は、スイッチをオンにしたときにだけ登録する（通信の横取りと、オフライン用のキャッシュはしない。動き出すのを待つのは10秒までで、過ぎたら「登録できませんでした…」）。ブラウザが購読を作り直したとき（pushsubscriptionchange）は扱わない（Service Worker は ID token を持たないので登録し直せない）。このときは Push が届かなくなり、S-09 でオンにし直すと戻る（既知の制限）。購読の作成に失敗し、ブラウザに古い購読が残っているときは、解除して1回だけ作り直す。（ログアウトのときは「詳細_F-02」手順4のとおり、結果に関係なくブラウザの購読を解除する。）オフにするときは、先に DELETE /api/push/subscribe を呼び、成功したらブラウザの購読を解除する（失敗したらブラウザの購読を残し、オンのままにする）。ブラウザに購読があるときは、GET /api/account を読み、この端末の購読のID（endpoint の sha256 を16進64文字にしたもの＝webPushId）が pushSubscriptionIds に無ければ、ブラウザの購読を解除して「この端末で受け取る：オフ」と表示する（サーバーに登録が無いと届かないため。ログインの期限切れの後に別の利用者がログインしたときに、前の利用者の購読が残っていても、ここで外れる）。確かめる間は「確認中…」と表示する。GET /api/account を読めなかったときは、ブラウザの判定のままにする。ブラウザの購読の解除に失敗したときも「この端末で受け取る：オフ」と表示する（オンにし直すと登録し直される）。応答に pushSubscriptionIds が無いときは、読めなかったときと同じに扱う。
+A96=12. Push通知をタップしたとき | B96=push の受信（04-15）では、Push の中身（詳細_F-06 の8-5）の url と notificationId を showNotification の data（{ url, notificationId }）に入れ、タップ（04-12）ではそれを読む。Service Worker は、Pushの url（/subscriptions/{subscriptionId}）に ?from=push を付けて開く。アプリの画面が開いていれば、その画面を移動して前に出し、無ければ新しく開く。Push から開いても、その通知は既読にしない（既読は S-08 で行う）。sw.js は install で skipWaiting()、activate で clients.claim() を呼ぶ（登録より前に開いていたタブも制御するため）。navigate() が失敗したときは clients.openWindow(url) で開く。url がアプリの中のパス（/ で始まる同じオリジン）でなければ、ホームを開く。通知の icon・badge は /icon-192.png、tag は notificationId（同じ通知が2回届いても1つにまとまる）。中身が無い・JSONでない Push は、タイトル「SubWatch」だけの通知を出す。そのサブスクが無ければ（404）S-06が S-08 へ移動する。ログインしていないときは S-02 を表示し、ログインした後はホーム（S-03）を表示する（通知のサブスクへは移動しない。通知センター（S-08）の［詳細を見る］から開ける）。
+A97=13. トライアルの表示（S-06） | B97=トライアル中は「最終無料日：MM/DD」と、その下に「この日までは無料です」。OFFは「対象外」。
+A99=アカウント削除・表示の細部
+A100=項目 | B100=内容
+A101=1. DELETE /api/account の検査順序 | B101=ID token（401 UNAUTHENTICATED。checkRevoked=true）→ auth_time（5分以内でなければ401 REAUTH_REQUIRED）→ 本文（Content-Type・JSON・未知のキー・confirmation:'DELETE'）。古い token で confirmation が無いときは、先に REAUTH_REQUIRED を返す。users の存在確認はしない。confirmation が無い・'DELETE' と完全一致しない（'delete'・前後に空白・文字列でない）ときは400 VALIDATION_ERROR（field=confirmation、message「入力内容を確認してください」）。未知のキーは400 UNKNOWN_FIELD。画面は入力欄の値ではなく、固定の文字列 'DELETE' を送る（入力欄の判定は前後の空白を除くので、入力値をそのまま送ると400になるため）。
+A102=2. 再認証 | B102=画面は常にパスワードを入力させ、ブラウザで再認証して ID token を取り直す。サーバーは auth_time が5分以内かを確認する（サーバーの現在時刻 − auth_time が300秒以下なら通す。auth_time は秒なので、ミリ秒の時刻と比べるときは1000倍する。ちょうど300秒は通す。auth_time が現在より未来でも通す。auth_time が無い・数でないときは401 REAUTH_REQUIRED）。
+A103=3. 失敗の扱い | B103=users の再帰削除・Auth 削除のどちらが失敗しても500 DELETE_FAILED（内部の理由は返さない。ログは requestId・code・status のみ）。データ削除が失敗したときは Auth を消さない。Auth 削除の後の後片づけ（「4. 削除の実装」の2回目の削除）の失敗だけは、500にせず、200を返す。Auth ユーザーがすでに無いときは成功として扱う。画面は確認ダイアログを閉じ、押した入口（S-09 の［アカウントを削除］、または S-13 の「アカウントを削除する」）のすぐ下に「削除できませんでした。もう一度お試しください」を出す。もう一度押せば最初から始まる。画面は、503・200でも {status:'deleted'} でない応答を含め、応答が届いた失敗はこの文にする（共通のオフラインの文は出さない。503 でもサインアウトしない）。［削除する］を押した時点（再認証の前）で navigator.onLine が false なら、再認証も DELETE も行わず共通のオフラインの文を出す（サインアウトしない。ダイアログは開いたまま）。送った後に応答が届かない（通信の失敗、または30秒たっても応答が無い。status 0 はどれも）ときは、この文を出さず、詳細_F-07 B15 のとおり（ブラウザの購読を解除し、サインアウトして S-02 で「削除が完了したか確認できませんでした。もう一度ログインしてください（パスワードを確かめてもログインできなければ、削除は完了しています）」）。30秒の時間切れは setTimeout と AbortController で作る（AbortSignal.timeout は page.clock で進められないので使わない）。ただし、401 REAUTH_REQUIRED はパスワードの再入力、401 UNAUTHENTICATED は共通の扱い（S-02 へ移動して「ログインの有効期限が切れました。もう一度ログインしてください」と表示する。「アカウントを削除しました」は出さない）。
+A104=4. 削除の実装 | B104=Admin SDK の recursiveDelete で users/{uid} とその配下を消す。親ドキュメントが無くても配下を消す。呼ぶのは2回：1回目 → Auth ユーザーの削除 → 2回目（後片づけ）。2回目は、1回目の途中から Auth の削除までの間に、別の端末から届いた登録・購読・同意を消すためのもの。2回目は、先に users/{uid} のドキュメントを消してから、配下を recursiveDelete で消す（users が作り直されていても、先に消せば、配下への新しい書き込みが止まるため）。2回目は、失敗したら合わせて3回まで行う。3回とも失敗したときは、ログに code=DELETE_CLEANUP_FAILED だけを出して（uid・メールアドレスは出さない）、成功を返す（このときは、途中に届いた分が残り得る。まれに後片づけの成功後にも残り得る〔C-12 の③で拾う〕。Firestore には記録しない〔cronRuns は個人情報を持たない〕。12/2 と 12/9 に比嘉（Firebase の持ち主）が、文書が無く配下だけ残った users と、users の無い Auth アカウントと、ID が Authentication に無い users の文書を探して手で消す〔手順書 04〕）。成功の応答の型は DeleteAccountResult { status: 'deleted' }（型定義と同じく lib/types.ts に置く）。テストの注意は「0.実装構成」の「実装の注意」。
+A105=5. ブラウザ側のPush購読 | B105=削除が成功したら、ブラウザ側でも、この端末の Push 購読を解除する（pushManager の購読の unsubscribe。サーバーのAPIは呼ばない＝削除後は401になるため）。解除に失敗しても、ログアウトと S-02 への移動は続ける（解除を待つのは最大3秒）。サーバー側の購読は users ごと消えている。ログインの期限切れ（401 UNAUTHENTICATED）でサインアウトするときも、同じ方法でこの端末の Push 購読を解除する（同じブラウザに別の利用者がログインしても、前の利用者の通知が届かないようにするため。サーバー側に残った購読は、次の送信で404/410になったときに削除される）。
+A106=6. Cronとの競合 | B106=通知イベントは、親の users/{uid} を読む transaction の中で作る（無ければ作らない）。そのため、アカウント削除と同時に動いても、持ち主のいない通知イベントは残らない（削除の途中に作られた分は、削除の後片づけが消す。Auth の削除の後は、users/{uid} が無いので作られない）。users/{uid} の配下に新しいドキュメントを作る処理は、サブスクの登録・Push 購読の登録・通知イベントの作成の3つだけで、どれも users/{uid} を読む transaction の中で行う。すでにあるドキュメントの変更は update で行い、無ければ作り直さない。Push の結果を保存するときに通知イベントが無い（NOT_FOUND）ときは、作り直さずに無視する。Push の結果（webPushDeliveredIds・webPushStatus・webPushSentAt・webPushLastErrorCode）は、その項目と updatedAt だけを update で書く（ドキュメント全体を書き直さない。送信の間に付いた既読を消さないため）。Cron の refresh_stale（次回請求日の更新）の update には、検索で読んだ文書の updateTime を前提条件に付ける（その間に PATCH された文書を、古い請求日から計算した値で上書きしない。前提条件に合わないものは無視する。詳細_F-06 の手順4）。ほかの保存の失敗は例外とし、その実行を failed にする。
+A107=7. S-06の404 | B107=存在しない・他の人のサブスクは「見つかりません」と［一覧へ戻る］を表示する。Push 通知から開いたとき（Service Worker が ?from=push を付ける）だけ、S-08 へ移動する（履歴に残さない移動。移動するまでは「読み込み中…」を表示し、「見つかりません」は出さない。404 以外の失敗は、通常の読み込み失敗の表示）。
+A108=8. 読み込み失敗・オフライン | B108=共通の文言を優先する（ただし、S-01 を開いたときに自分で読む GET /api/account の失敗は共通の文にせず、後ろの括弧の文だけを出す。S-09 のスイッチ③④は、ゲートが反応するエラー〔401 UNAUTHENTICATED・409 TERMS_RECONSENT_REQUIRED・409 ACCOUNT_NOT_INITIALIZED〕のときだけ、失敗の文を出さずに元へ戻す。それ以外の失敗では元へ戻し、③は「変更できませんでした。もう一度お試しください」、④は画面設計書 S-09 の④の文（オンは「登録できませんでした…」、オフは「解除できませんでした…」）を出す）：オフライン（status 0 の OFFLINE）「オフラインです。接続を確認してください」、一時的な障害（503 TEMPORARILY_UNAVAILABLE と 500 RESOURCE_EXHAUSTED）「一時的に利用できません。時間をおいて再試行してください」。S-08 の既読の失敗も、共通の文ではなく「既読にできませんでした。もう一度お試しください」を出す（S-09 のスイッチと同じ扱い）。それ以外は、機能ごとの文言（ホーム・カレンダー・通知）を使う。S-05 の保存の失敗と S-06 の削除の失敗も同じで、オフラインのときは「オフラインです。接続を確認してください」、一時的な障害のときは「一時的に利用できません。時間をおいて再試行してください」を優先して表示する（それ以外は「保存できませんでした。もう一度お試しください」「削除できませんでした。もう一度お試しください」）。S-11・S-12 は静的な画面なので、開いたとき（と［再試行］を押したとき）にオフラインのときだけ（読んでいる途中で通信が切れても本文は表示したまま。画面設計書 S-11・S-12 の「状態」）、画面設計書の文言（「読み込めませんでした」「ネットワークを確認して再試行してください」）を使う。401 UNAUTHENTICATED と、同意が必要な409（TERMS_RECONSENT_REQUIRED・ACCOUNT_NOT_INITIALIZED）のときは、画面が S-02・S-13 へ切り替わるので、その画面には失敗の文を出さない（切り替わるまで「読み込み中…」「保存中…」などのままにする。S-01・S-13 の bootstrap の 409・500 は除く。401 は S-01・S-13 でも onApiGate が扱う。S-01 を開いたときに自分で読む GET /api/account（最初の認証の確定の1回だけ）が読めないときは「読み込めませんでした。ページを再読み込みしてください」とだけ出す。再試行のボタンは出さない）。S-09 のスイッチ（③④）は、ゲートが反応するエラーのときは、失敗の文を出さず、処理中の表示を消して、スイッチを押す前の状態に戻す（それ以外の失敗は上のとおり文を出す）。
+A109=9. S-11・S-12の［戻る］ | B109=ログイン済みで履歴があれば、前の画面へ戻る（history.back）。なければ S-09 へ。ログイン前は S-01 へ。ログインの状態を確かめている途中に押されたときは、確かめ終わってから行き先を決める。
+A110=10. 本番での確かめ | B110=auth_time の5分判定は、公開環境で実際に確かめる（「0.実装構成」の「実装の注意」）。
+
+##### シート：型定義
+A1=型定義（TypeScript。lib/types.ts にそのまま置く）
+A3=export type BillingCycle = 'monthly' | 'quarterly' | 'semiAnnual' | 'yearly';
+export type BillingDayMode = 'fixedDay' | 'endOfMonth';
+export type Category = 'video' | 'music' | 'cloud' | 'learning' | 'ai' | 'game' | 'news' | 'work' | 'other';
+export type DateString = string;      // 'YYYY-MM-DD'（日本時間、2000-01-01〜2100-12-31）
+export type IsoString = string;       // ISO 8601（UTC）。APIのJSONでの日時
+
+// APIが返す／受け取るサブスク（uid は含めない）
+export interface SubscriptionDto {
+  subscriptionId: string;
+  serviceName: string;
+  planName: string | null;
+  price: number;                      // 円。0〜10,000,000の整数
+  billingCycle: BillingCycle;
+  firstBillingDate: DateString;
+  nextBillingDate: DateString;        // 毎回計算した値（読み取り専用）
+  billingDayMode: BillingDayMode;
+  category: Category;
+  trialEnabled: boolean;
+  trialEndDate: DateString | null;
+  websiteUrl: string | null;
+  cancelUrl: string | null;
+  paymentMethod: string | null;
+  memo: string | null;
+  subscriptionNotificationEnabled: boolean;
+  createdAt: IsoString;
+  updatedAt: IsoString;
+}
+A4=// POST /api/subscriptions の本文（必須: serviceName, price, billingCycle, firstBillingDate, billingDayMode, category）
+export interface CreateSubscriptionBody {
+  serviceName: string; price: number; billingCycle: BillingCycle; firstBillingDate: DateString;
+  billingDayMode: BillingDayMode; category: Category;
+  planName?: string | null; trialEnabled?: boolean; trialEndDate?: DateString | null;
+  websiteUrl?: string | null; cancelUrl?: string | null; paymentMethod?: string | null; memo?: string | null;
+  subscriptionNotificationEnabled?: boolean; confirmDuplicate?: boolean;
+}
+// PATCH /api/subscriptions/:id の本文（1項目以上。confirmDuplicate は受け付けない）
+export type UpdateSubscriptionBody = Partial<Omit<CreateSubscriptionBody, 'confirmDuplicate'>>;
+
+// AccountDto の pushSubscriptionCount、NotificationDto の daysBefore・targetDate・priceAtNotification・webPushStatus、SubscriptionDto の updatedAt、ReadAllResult の updatedCount、409 DUPLICATE_CANDIDATE の candidates は画面では使わない（テストと運用で使う）
+export interface AccountDto { email: string; accountNotificationEnabled: boolean; termsVersion: string; privacyVersion: string; pushSubscriptionCount: number; pushSubscriptionIds: string[]; }
+export interface BootstrapBody { termsAccepted: true; privacyAccepted: true; termsVersion: string; privacyVersion: string; }
+
+export interface NotificationDto {
+  notificationId: string; subscriptionId: string; serviceNameAtNotification: string;
+  notificationType: 'billing' | 'trial_end'; daysBefore: 7 | 1; targetDate: DateString;
+  title: string; body: string; priceAtNotification: number | null;
+  subscriptionExists: boolean;          // そのサブスクが今もあるか（GET /api/notifications が付ける）
+  viewedAt: IsoString | null; webPushStatus: 'pending' | 'sent' | 'partially_sent' | 'failed' | 'skipped'; createdAt: IsoString;
+}
+A5=export interface ApiFieldError { field: string; code: string; message: string; }
+export interface ApiError { code: string; message: string; field?: string; details?: ApiFieldError[]; candidates?: { subscriptionId: string; serviceName: string }[]; }
+export type ApiResponse<T> = { data: T; error: null; requestId: string } | { data: null; error: ApiError; requestId: string };
+
+// GET /api/dashboard（API一覧 No.10）
+export interface DashboardDto {
+  weekTotal: { count: number; amountJPY: number };
+  monthTotal: { count: number; amountJPY: number };
+  monthlyEquivalentJPY: number;
+  yearlyEquivalentJPY: number;
+  subscriptionCount: number;
+  unreadCount: number;
+  nextBills: { subscriptionId: string; serviceName: string; websiteUrl: string | null; date: DateString; priceJPY: number; daysLeft: number }[];
+}
+// GET /api/calendar?month=YYYY-MM（API一覧 No.11）
+export interface CalendarDto {
+  month: string; // YYYY-MM
+  days: { date: DateString; items: { subscriptionId: string; serviceName: string; priceJPY: number }[] }[];
+  monthTotalJPY: number;
+}
+A6=// Cron と Push 送信の間の約束（分担は「詳細_F-06」の 8-6）
+export type WebPushStatus = 'pending' | 'sent' | 'partially_sent' | 'failed' | 'skipped';
+export interface NotificationEvent { notificationId: string; uid: string; subscriptionId: string; serviceNameAtNotification: string; notificationType: 'billing' | 'trial_end'; daysBefore: 7 | 1; targetDate: DateString; title: string; body: string; priceAtNotification: number | null; webPushStatus: WebPushStatus; webPushDeliveredIds: string[]; }
+// PushResult.deliveredIds は、送り終えた端末の全部（前の実行までの分と、今回の分。保存した後の webPushDeliveredIds と同じ）
+export interface PushResult { status: Exclude<WebPushStatus, 'pending'>; deliveredIds: string[]; lastErrorCode: string | null; }
+export type PushSender = (uid: string, event: NotificationEvent) => Promise<PushResult>;
+
+// GET /api/notifications の応答（API一覧 No.14。filter は all・unread・billing・trial_end）
+export type NotificationFilter = 'all' | 'unread' | 'billing' | 'trial_end';
+export interface NotificationListDto { items: NotificationDto[]; nextCursor: string | null; unreadCount: number; }
+// DELETE /api/account の成功の応答（API一覧 No.4）
+export interface DeleteAccountResult { status: 'deleted'; }
+// DELETE /api/account の本文（API一覧 No.4。画面は入力値ではなく固定の 'DELETE' を送る）
+export interface DeleteAccountBody { confirmation: 'DELETE'; }
+A7=// GET /api/subscriptions の応答（API一覧 No.5。totalCount は画面では使わない。テストで使う）
+export interface SubscriptionListDto { items: SubscriptionDto[]; totalCount: number; }
+// POST /api/push/subscribe の本文と応答（API一覧 No.12）
+export interface PushSubscribeRequest { endpoint: string; keys: { p256dh: string; auth: string }; userAgent?: string | null; }
+export interface PushUnsubscribeRequest { endpoint: string; }
+// POST /api/account/bootstrap の応答（API一覧 No.1。画面では使わない。テストで使う）
+export interface BootstrapResult { uid: string; initialized: true; }
+// PATCH /api/account の本文と応答（No.3）
+export interface UpdateAccountBody { accountNotificationEnabled: boolean; }
+export type UpdateAccountResult = UpdateAccountBody;
+// GET/POST/PATCH の1件の応答（No.6〜8）
+export interface SubscriptionResponse { subscription: SubscriptionDto; }
+// 既読の応答（No.15・No.16）
+export interface MarkReadResult { viewedAt: IsoString; }
+export interface ReadAllResult { updatedCount: number; }
+export interface PushSubscribeResult { enabled: true; }
+// GET /api/cron/daily の応答（API一覧 No.17）
+export interface CronResult { status: 'completed' | 'partial' | 'noop'; createdCount: number; sentCount: number; failedCount: number; }
+// 保存の形の型も lib/types.ts に置く（項目は DB設計書 No.1〜No.5。応答の Dto と分ける）：
+// SubscriptionDoc（No.2）・NotificationEventDoc（No.3。NotificationEvent に createdAt・viewedAt・expireAt などを足した形）・CronRunDoc（No.5）
+export interface ConsentRecord { termsVersion: string; privacyVersion: string; acceptedAt: Timestamp; kind: 'create' | 'reconsent'; }
