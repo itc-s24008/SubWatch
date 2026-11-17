@@ -111,7 +111,7 @@ Settings → General → Pull Requests で、「Allow merge commits」だけを�
 - 創大が休んだときは、創大が戻る日に回す（11/17 なら 11/18 の4限の最後の30分）。結愛が休んだときは、A まで進め、B と C の確認は 11/18 の4限の最後の30分に回す（鍵が無いので API は動かない。決まりの一覧 B-9）。
 
 ### A. 創大のパソコンで（創大が操作する。手順は星凪が進める）
-1. 結愛が、Firebase の設定値4つ（`NEXT_PUBLIC_`。手順書 01 の 2。秘密ではない）を、チームのチャットで星凪に渡す。
+1. 結愛が、Firebase の設定値4つ（`NEXT_PUBLIC_`。手順書 01 の 2。秘密ではない）を、チームのチャットに貼る（創大が A の 4 で入れる）。
 2. 創大が自分のパソコンで https://vercel.com に「Continue with GitHub」でログインする → Hobby プラン。「Add New」→「Project」→ `SubWatch` を「Import」。一覧に `SubWatch` が出ないときは、Vercel の GitHub App を入れる：「Install」（または「Adjust GitHub App Permissions」）→「Only select repositories」→ `SubWatch` を選ぶ →「Install」。
 3. **Root Directory：`subwatch`**。Framework は Next.js。
    - Node.js Version は **22.x**（Settings → Build and Deployment。`package.json` の `engines` も `"22.x"`）。
@@ -165,7 +165,7 @@ Deploy Hook は、叩くと main の最新のコミットを本番にデプロ�
 - **確認（11/18 の1限の最初の30分の終わり）：** 3本のマージの後で、main で `npm run build`（`subwatch/` の中）が通ることを確かめてから、結愛が自分で作った小さな Pull Request（`subwatch/` の中の1行。例：`subwatch/README.md` に1行足す。Root Directory の外〔リポジトリ直下の README など〕の変更は、ビルドが飛ばされることがある）を、星凪が読んでから（副担当の確認の代わり）、結愛がマージボタンを押してマージし、自分のパソコンで叩く：`curl -fsS -X POST "$(cat ~/secrets/deploy-hook.txt)" > /dev/null && echo OK`。創大が Vercel の Deployments で、そのコミットが本番に出た（Ready）かを見て、結果を `docs/統合記録.md` に書く（まとめ役の代わりに創大が書いてよい。main に直接 push しないので、ブランチ `docs/integration-record-1112` を作って書き、Pull Request で入れる。手順書 05 の 1）。
 - **確認が通ったとき：** 創大が休んだ日（統合日を含む）は、結愛が main へマージした後に、自分のパソコンで上と同じように叩く。叩いた後は、GitHub の main のコミットの横の印（Vercel のチェック）か、公開URLで、変更が入ったことを確かめる（Vercel の画面は創大のアカウントなので開かない）。
 - **確認が通らなかったとき（止まった・失敗した）：** 12/1 より前に創大が休んだ日は、結愛がマージしてよい（開発を止めない）が、本番には出ない。創大が戻った日に、`subwatch/` の中の1行を変えたコミットを創大が push して出す（6 の 3）。統合日に創大が休んだときは、11/25 のα版のデモはローカル（Emulator）で行い、12/1 は公開を 12/3 に延ばす（決まりの一覧 B-3。手順書 05）。
-- 環境変数の追加・変更、Redeploy、ログを見ることは、Deploy Hook ではできない。次の授業日に星凪が行う。
+- 環境変数の追加・変更、Redeploy、ログを見ることは、Deploy Hook ではできない。Vercel の画面の操作なので、次の授業日に創大が行う。
 
 ## 6. 無料プランの確認（11/17〜11/18。必ず行う）
 Vercel の Hobby プランと Private リポジトリの組み合わせでは、持ち主以外のコミットでデプロイが止まるという報告がある（公式文書では未確認）。SubWatch のリポジトリは Public なので、起きるかどうかは分からない。下の確認は予定どおり行う。Hobby プランは共同作業者を持てないため。
@@ -178,7 +178,7 @@ Vercel の Hobby プランと Private リポジトリの組み合わせでは、
    echo "<!-- 本番に反映 $(date +%F) -->" >> subwatch/README.md
    git add subwatch/README.md && git commit -m "本番に反映する" && git push    # subwatch/README.md が未追跡でも入るように git add する
    ```
-   main に直接 push してよいのは、このときの創大だけ（3 のチームのルールの例外）。止まったら統合日ごとに星凪が行い、行ったことを `docs/統合記録.md` に書く（記録はブランチと Pull Request で入れる。手順書 05 の 1）。
+   main に直接 push してよいのは、このときの創大だけ（3 のチームのルールの例外）。止まったら統合日ごとに創大が行い、行ったことを `docs/統合記録.md` に書く（記録はブランチと Pull Request で入れる。手順書 05 の 1）。
 
 ## 7. うまくいかないとき
 | 症状 | 対処 |
