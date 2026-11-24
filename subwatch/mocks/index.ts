@@ -266,6 +266,10 @@ addMockRoute('GET', '/api/dashboard', () => ({
 // ===== 04-09：ホームと一覧 ここに足す =====
 
 // ===== 04-12：Push 購読（POST・DELETE /api/push/subscribe） ここに足す =====
+// 仮データは検証をしない（本物では endpoint などの 400 もある）。GET /api/account の pushSubscriptionIds は空のままなので、
+// 仮データで開き直すと、S-09 ⑤の確認でブラウザの購読が解除される（本物の API で試すときは起きない）
+addMockRoute('POST', '/api/push/subscribe', () => ({ data: { enabled: true } }));
+addMockRoute('DELETE', '/api/push/subscribe', () => ({ status: 204 }));
 
 // ===== 04-13：カレンダー（GET /api/calendar） ここに足す =====
 
