@@ -1,0 +1,7 @@
+{
+  "//": "npm run typecheck 用。.next を見ない（ブランチを切り替えたとき、古い .next/types で落ちないように）。Next.js の型は global.d.ts から読む",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["global.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", ".next", "test-results", "playwright-report"]
+}
