@@ -5,7 +5,8 @@
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { addDays, annualAmount, billingDatesInRange, daysBetween, daysInMonth, monthlyEquivalentTotal, nextBillingDate, weekdayOf } from '@/lib/billing';
 import { adminDb } from '@/lib/firebase-admin';
-import type { BillingCycle, BillingDayMode, DashboardDto, DateString } from '@/lib/types';
+import { listSubscriptions } from '@/lib/subscriptions';
+import type { BillingCycle, BillingDayMode, DashboardDto, DateString, SubscriptionDoc } from '@/lib/types';
 
 // 集計に使うサブスクの形（保存の形 SubscriptionDoc から、集計に要る項目だけを取り出したもの）。
 // 保存された値が壊れていることがあるので、price・billingCycle などは確かめずにそのまま入れる（集計の中で RangeError になったら外す）
@@ -19,10 +20,12 @@ export interface DashboardSubscription {
   websiteUrl: string | null;
 }
 
-// 保存されたドキュメント（users/{uid}/subscriptions/{id}）を集計の形にする（統合日に 04-07 の toSubscriptionDto とそろえる名前）
-export function toDashboardSubscription(id: string, data: Record<string, unknown>): DashboardSubscription {
+// 保存されたドキュメント（04-07 の listSubscriptions が返す保存の形）を集計の形にする（CLAUDE.md「統合日にそろえる名前」）。
+// 統合①（11/19）で、引数を (id, data) から listSubscriptions の SubscriptionDoc に替えた。保存値は壊れていることがあるので、型は信じずに読む
+export function toDashboardSubscription(doc: SubscriptionDoc): DashboardSubscription {
+  const data = doc as unknown as Record<string, unknown>;
   return {
-    subscriptionId: id,
+    subscriptionId: doc.subscriptionId,
     serviceName: typeof data.serviceName === 'string' ? data.serviceName : '',
     price: data.price as number,
     billingCycle: data.billingCycle as BillingCycle,
@@ -108,16 +111,10 @@ export function computeDashboard(subscriptions: DashboardSubscription[], today: 
   };
 }
 
-// 未読の数え始め（現在時刻 − 90日）。統合日に、04-14・04-21 の unreadWindowStart とそろえる
+// 未読の数え始め（現在時刻 − 90日。CLAUDE.md「統合日にそろえる名前」）。置き場所はこのファイル。
+// 統合①（11/19）の時点で、ほかに同じ計算は無い。04-14・04-21 が「直近90日」を使うときは、作り直さずにこれを import する（次の統合の手順8で確かめる）
 export function unreadWindowStart(now: Date): Date {
   return new Date(now.getTime() - UNREAD_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-}
-
-// サブスクを全件、作成日時の昇順（同じ時刻はドキュメントIDの昇順）で読む。
-// 仮：統合日に 04-07 の listSubscriptions（lib/subscriptions.ts）にそろえる
-export async function listDashboardSubscriptions(uid: string, db: Firestore = adminDb()): Promise<DashboardSubscription[]> {
-  const snapshot = await db.collection('users').doc(uid).collection('subscriptions').orderBy('createdAt', 'asc').get();
-  return snapshot.docs.map((doc) => toDashboardSubscription(doc.id, doc.data()));
 }
 
 // 未読の数：viewedAt が null で、createdAt が「現在時刻 − 90日」以後（上限なし）。count() 集計
@@ -143,8 +140,9 @@ export interface DashboardOptions {
 // GET /api/dashboard の中身（users と規約の版の確認は route が requireInitialized で行う）
 export async function getDashboard(uid: string, options: DashboardOptions): Promise<DashboardDto> {
   const db = options.db ?? adminDb();
-  const [subscriptions, unreadCount] = await Promise.all([listDashboardSubscriptions(uid, db), countUnreadNotifications(uid, options.now, db)]);
-  return computeDashboard(subscriptions, options.today, unreadCount);
+  // サブスクの読み取りは 04-07 の listSubscriptions（作成日時の昇順・同じ時刻はドキュメントIDの昇順）。統合①で仮の listDashboardSubscriptions から置き換えた
+  const [docs, unreadCount] = await Promise.all([listSubscriptions(uid, db), countUnreadNotifications(uid, options.now, db)]);
+  return computeDashboard(docs.map(toDashboardSubscription), options.today, unreadCount);
 }
 
 // ===== 04-13：カレンダーの集計 ここに足す =====
