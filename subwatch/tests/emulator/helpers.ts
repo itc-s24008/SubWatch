@@ -99,6 +99,58 @@ export async function resetEmulators(): Promise<void> {
 }
 
 // ===== 04-07：seedSubscriptions・TEST_DATA_SUBSCRIPTIONS ここに足す =====
+import type { SubscriptionDoc } from '@/lib/types';
+
+// テストデータの5件（機能設計書「テストデータ」。基準日 2026-11-04。登録の順は配列の順で、いちばん上がいちばん古い）
+// カテゴリーは画面設計書「サンプルデータ」のとおり。nextBillingDate は基準日 2026-11-04 の値
+export const TEST_DATA_SUBSCRIPTIONS: Partial<SubscriptionDoc>[] = [
+  { serviceName: 'Netflix', price: 1590, billingCycle: 'monthly', firstBillingDate: '2026-10-08', billingDayMode: 'fixedDay', category: 'video', nextBillingDate: '2026-11-08', websiteUrl: 'https://www.netflix.com' },
+  { serviceName: 'Spotify', price: 980, billingCycle: 'monthly', firstBillingDate: '2026-09-05', billingDayMode: 'fixedDay', category: 'music', nextBillingDate: '2026-11-05' },
+  { serviceName: 'Adobe Creative Cloud', price: 6480, billingCycle: 'monthly', firstBillingDate: '2026-10-11', billingDayMode: 'fixedDay', category: 'cloud', nextBillingDate: '2026-11-11' },
+  { serviceName: 'iCloud+', price: 12000, billingCycle: 'yearly', firstBillingDate: '2025-12-01', billingDayMode: 'fixedDay', category: 'cloud', nextBillingDate: '2026-12-01' },
+  { serviceName: 'ChatGPT', price: 3000, billingCycle: 'monthly', firstBillingDate: '2026-11-30', billingDayMode: 'endOfMonth', category: 'ai', nextBillingDate: '2026-11-30', trialEnabled: true, trialEndDate: '2026-11-10' },
+];
+
+// サブスクを Firestore に直接置く（API を通さない。users は作らない）。書かなかった項目は既定の値
+// （料金 1000・毎月・請求日 2026-11-04・fixedDay・その他・任意の項目は null・trialEnabled false・通知 true）。
+// 作成日時は渡した順に1ミリ秒ずつ進め、並びを決める。置いたドキュメント（保存の形）を、渡した順で返す
+export async function seedSubscriptions(uid: string, items: Partial<SubscriptionDoc>[]): Promise<SubscriptionDoc[]> {
+  const collection = adminDb().collection('users').doc(uid).collection('subscriptions');
+  const base = Date.now();
+  const docs: SubscriptionDoc[] = [];
+  const batch = adminDb().batch();
+  items.forEach((item, index) => {
+    const ref = item.subscriptionId ? collection.doc(item.subscriptionId) : collection.doc();
+    const createdAt = Timestamp.fromMillis(base + index);
+    const doc: SubscriptionDoc = {
+      subscriptionId: ref.id,
+      uid,
+      serviceName: 'テストのサブスク',
+      planName: null,
+      price: 1000,
+      billingCycle: 'monthly',
+      firstBillingDate: '2026-11-04',
+      nextBillingDate: item.firstBillingDate ?? '2026-11-04',
+      billingDayMode: 'fixedDay',
+      category: 'other',
+      trialEnabled: false,
+      trialEndDate: null,
+      websiteUrl: null,
+      cancelUrl: null,
+      paymentMethod: null,
+      memo: null,
+      subscriptionNotificationEnabled: true,
+      createdAt,
+      updatedAt: createdAt,
+      ...item,
+    } as SubscriptionDoc;
+    doc.subscriptionId = ref.id;
+    batch.set(ref, doc);
+    docs.push(doc);
+  });
+  await batch.commit();
+  return docs;
+}
 
 // ===== 04-12：seedPushSubscription ここに足す =====
 
