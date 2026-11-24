@@ -96,9 +96,11 @@ describe('GET /api/cron/daily（通知の作成）', () => {
       body: '11/11・¥6,480 の請求予定',
       priceAtNotification: 6480,
     });
-    // createdAt はミリ秒精度、updatedAt は createdAt と同じ、expireAt は createdAt の90日後
+    // createdAt はミリ秒精度、expireAt は createdAt の90日後。updatedAt は、作成時は createdAt と同じ値で、Push の結果を保存するとその時刻に更新される
+    // （DB設計書 テーブルNo.3 updatedAt。11/25 のα版の統合で route の送信を lib/push.ts の pushSender に替えたので、購読の無い利用者も skipped を保存して
+    //   updatedAt が進む。前の「createdAt と同じ」は、何も保存しない仮の noopPushSender が前提だった。統合の指示書 手順5 の例外。docs/統合記録.md）
     for (const e of list) {
-      expect(e.updatedAt.toMillis()).toBe(e.createdAt.toMillis());
+      expect(e.updatedAt.toMillis()).toBeGreaterThanOrEqual(e.createdAt.toMillis());
       expect(e.expireAt.toMillis() - e.createdAt.toMillis()).toBe(90 * DAY_MS);
     }
 

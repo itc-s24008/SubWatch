@@ -3,14 +3,15 @@
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-import { noopPushSender, resolveRunDate, runDailyCron, verifyCronSecret } from '@/lib/cron';
+import { resolveRunDate, runDailyCron, verifyCronSecret } from '@/lib/cron';
 import { ok, withApi } from '@/lib/http';
+import { pushSender } from '@/lib/push';
 
 export const GET = withApi(async (req) => {
   verifyCronSecret(req); // 1. Authorization: Bearer CRON_SECRET（違えば 401 INVALID_CRON_SECRET。認証が先）
   const runDate = resolveRunDate(req); // 2. 日本時間の今日（ALLOW_CRON_RUNDATE_OVERRIDE=true のときだけ ?runDate）
-  // 3. Push の送信は、11/25 の統合までは仮の PushSender（何も送らず、何も保存せずに skipped を返す）。
-  //    統合で、04-15 の lib/push.ts が export する pushSender に差し替える（ここの1か所）
-  const result = await runDailyCron({ runDate, pushSender: noopPushSender });
+  // 3. Push の送信は、04-15 の lib/push.ts が export する pushSender（11/25 のα版の統合で、仮の noopPushSender から差し替えた。ここの1か所）。
+  //    Web Push の送信を外すときは、ここを lib/cron.ts の noopPushSender に戻す（通知イベントは作り続ける。統合の指示書・手順書 05）
+  const result = await runDailyCron({ runDate, pushSender });
   return ok(result);
 });
