@@ -31,3 +31,16 @@ export const DELETE = withApi(async (req) => {
 });
 
 // ===== 04-21：PATCH /api/account ここに足す =====
+import { requireInitialized, UPDATE_ACCOUNT_KEYS, updateAccountNotification, validateUpdateAccountBody } from '@/lib/account';
+
+// 検査の順序（API共通仕様 B6・B56）：ID token（401）→ users/{uid} と規約の版（requireInitialized。409 ACCOUNT_NOT_INITIALIZED・
+// TERMS_RECONSENT_REQUIRED）→ 本文（Content-Type・JSON。400）→ 未知のキー（400 UNKNOWN_FIELD）→ 真偽値か（400 VALIDATION_ERROR）→
+// 書き込み（update だけ。同じ値なら書かない）→ 200 {accountNotificationEnabled}
+export const PATCH = withApi(async (req) => {
+  const user = await requireAuth(req);
+  const saved = await requireInitialized(user.uid);
+  const body = await readJsonBody(req);
+  rejectUnknownKeys(body, UPDATE_ACCOUNT_KEYS);
+  const { accountNotificationEnabled } = validateUpdateAccountBody(body);
+  return ok(await updateAccountNotification(user.uid, saved, accountNotificationEnabled));
+});

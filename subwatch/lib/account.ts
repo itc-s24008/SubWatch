@@ -139,3 +139,49 @@ export async function getAccount(uid: string, options: { db?: Firestore } = {}):
 // ===== 04-07：サブスクの登録・削除（users/{uid} を読む transaction）に要る処理 ここに足す =====
 
 // ===== 04-21：PATCH /api/account の処理 ここに足す =====
+// PATCH /api/account（API一覧 No.3、詳細_F-12 の手順5、API共通仕様 B9・B56・B106、決まりの一覧 C-8）
+//   users/{uid} の確認（無ければ 409 ACCOUNT_NOT_INITIALIZED）と規約の版の確認は、route が requireInitialized で先に行う
+//   保存された値と同じなら、何も書かずに同じ値を返す（updatedAt も変えない。項目が無いドキュメントは true として比べる）
+//   変えるときは update で accountNotificationEnabled と updatedAt だけを書く（set や merge で users を作り直さない）。
+//   読んだ後に users が消えていた（update が NOT_FOUND）ときは 409 ACCOUNT_NOT_INITIALIZED
+import { isFirestoreNotFound } from '@/lib/errors';
+import type { UpdateAccountBody, UpdateAccountResult } from '@/lib/types';
+
+export const UPDATE_ACCOUNT_KEYS = ['accountNotificationEnabled'] as const;
+
+// 本文の項目の検査：accountNotificationEnabled が真偽値でない（無い・null・文字列など）なら 400 VALIDATION_ERROR
+// （要件定義書の入力項目の表に無い項目なので、message は「入力内容を確認してください」。API共通仕様 B39）
+export function validateUpdateAccountBody(body: Record<string, unknown>): UpdateAccountBody {
+  if (typeof body.accountNotificationEnabled !== 'boolean') {
+    const message = '入力内容を確認してください';
+    throw new HttpError(400, 'VALIDATION_ERROR', message, {
+      field: 'accountNotificationEnabled',
+      details: [{ field: 'accountNotificationEnabled', code: 'VALIDATION_ERROR', message }],
+    });
+  }
+  return { accountNotificationEnabled: body.accountNotificationEnabled };
+}
+
+export interface UpdateAccountOptions {
+  db?: Firestore; // テスト用の差し替え口
+  now?: () => Timestamp; // テスト用の差し替え口（updatedAt の時刻）
+}
+
+export async function updateAccountNotification(
+  uid: string,
+  user: UserDoc,
+  accountNotificationEnabled: boolean,
+  options: UpdateAccountOptions = {},
+): Promise<UpdateAccountResult> {
+  const saved = (user as Partial<UserDoc>).accountNotificationEnabled !== false; // 項目が無いドキュメントは true
+  if (saved === accountNotificationEnabled) return { accountNotificationEnabled };
+  const db = options.db ?? adminDb();
+  const updatedAt = options.now ? options.now() : AdminTimestamp.now();
+  try {
+    await db.collection('users').doc(uid).update({ accountNotificationEnabled, updatedAt });
+  } catch (error) {
+    if (isFirestoreNotFound(error)) throw new HttpError(409, 'ACCOUNT_NOT_INITIALIZED');
+    throw error;
+  }
+  return { accountNotificationEnabled };
+}

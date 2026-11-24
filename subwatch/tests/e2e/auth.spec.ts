@@ -275,7 +275,7 @@ test.describe('S-02 ログイン', () => {
     await expect(message).toBeVisible();
   });
 
-  test('正しいログインで S-03 へ移る。「S-02 でログイン → S-03 → 下部ナビで S-09」で GET /api/account は1回だけ（Gates。AccountInfo は読まない）', async ({ page }) => {
+  test('正しいログインで S-03 へ移る。「S-02 でログイン → S-03 → 下部ナビで S-09」で GET /api/account は2回（Gates と、04-21 の NotificationSection。AccountInfo は読まない）', async ({ page }) => {
     const user = await createUser({ initialized: true });
     const account = await mockApi(page, 'GET', '/api/account', accountResponse(user.email));
     await openLogin(page);
@@ -286,7 +286,7 @@ test.describe('S-02 ログイン', () => {
     await page.getByRole('navigation', { name: 'メニュー' }).getByRole('link', { name: '設定' }).click();
     await expect(page.getByRole('heading', { level: 1, name: '設定' })).toBeVisible();
     await expect(page.getByText(user.email)).toBeVisible(); // ②アカウント情報
-    expect(account.calls()).toBe(1);
+    await expect.poll(() => account.calls()).toBe(2); // 04-21 で 1 → 2（決まりの一覧 C-9 の③）
   });
 
   test('No.69 再設定は、Auth に無いメール（nobody@example.com）と登録済みのメールで同じ文が出る', async ({ page }) => {
@@ -349,7 +349,8 @@ test.describe('Gates と onApiGate', () => {
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ホーム' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'メニュー' })).toBeVisible();
-    expect(account.calls()).toBe(2);
+    // 04-21 で 2 → 3：Gates の2回（最初と、同意の後の読み直し）と、同意の後にホームへ移る前に一度出る S-09 の③（NotificationSection）の1回
+    await expect.poll(() => account.calls()).toBe(3);
   });
 
   test('No.57 利用中に API が 409 TERMS_RECONSENT_REQUIRED を返すと S-13 に切り替わる', async ({ page }) => {
