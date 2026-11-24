@@ -336,7 +336,7 @@ test.describe('Gates と onApiGate', () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test('No.57 保存された規約の版が古いと S-13 を出し（下部ナビなし）、同意（仮のボタン）の後は GET /api/account を読み直してホームへ移る', async ({ page }) => {
+  test('No.57 保存された規約の版が古いと S-13 を出し（下部ナビなし）、同意（チェック2つ →［同意して続ける］。04-19 で本物の操作に直した）の後は GET /api/account を読み直してホームへ移る', async ({ page }) => {
     const user = await loginAsNewUser(page);
     const account = await mockApi(page, 'GET', '/api/account', [
       accountResponse(user.email, { termsVersion: OLD_VERSION, privacyVersion: OLD_VERSION }),
@@ -345,7 +345,9 @@ test.describe('Gates と onApiGate', () => {
     await page.goto('/settings');
     await expect(page.getByRole('heading', { level: 1, name: '同意の確認' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'メニュー' })).toHaveCount(0);
-    await page.getByRole('button', { name: '同意して続ける（仮）' }).click();
+    await page.getByRole('checkbox', { name: /利用規約/ }).check();
+    await page.getByRole('checkbox', { name: /プライバシーポリシー/ }).check();
+    await page.getByRole('button', { name: '同意して続ける' }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole('heading', { level: 1, name: 'ホーム' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'メニュー' })).toBeVisible();
