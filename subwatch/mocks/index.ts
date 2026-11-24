@@ -278,3 +278,74 @@ addMockRoute('DELETE', '/api/push/subscribe', () => ({ status: 204 }));
 addMockRoute('DELETE', '/api/account', () => ({ data: { status: 'deleted' } }));
 
 // ===== 04-21：通知（GET /api/notifications など）・PATCH /api/account ここに足す =====
+// 値は画面設計書「サンプルデータ」B23・B26：今日（2026-11-04）の Cron で作られた2件（Spotify 1日前・Adobe Creative Cloud 7日前）で、
+// Adobe Creative Cloud は既読（未読は1件）。作成時刻は日本時間 09:00。仮データは filter・limit・cursor を見ない（mockResponse は
+// handler にクエリを渡さないため。04-01 の行は変えない）。どのフィルターでも2件を返し、続きは無い（nextCursor は null）。
+// 既読・すべて既読・PATCH /api/account は、ページを読み込み直すまで覚えている（GET /api/account の accountNotificationEnabled は 04-01 の値のまま）
+import type { MarkReadResult, NotificationDto, NotificationListDto, ReadAllResult, UpdateAccountResult } from '@/lib/types';
+
+function initialNotifications(): NotificationDto[] {
+  const createdAt = '2026-11-04T00:00:00.000Z'; // 日本時間 2026-11-04 09:00
+  return [
+    {
+      notificationId: '2'.repeat(64),
+      subscriptionId: 'mockSubscription0002',
+      serviceNameAtNotification: 'Spotify',
+      notificationType: 'billing',
+      daysBefore: 1,
+      targetDate: '2026-11-04',
+      title: '請求日まであと1日',
+      body: '11/05・¥980 の請求予定',
+      priceAtNotification: 980,
+      subscriptionExists: true,
+      viewedAt: null,
+      webPushStatus: 'sent',
+      createdAt,
+    },
+    {
+      notificationId: '1'.repeat(64),
+      subscriptionId: 'mockSubscription0003',
+      serviceNameAtNotification: 'Adobe Creative Cloud',
+      notificationType: 'billing',
+      daysBefore: 7,
+      targetDate: '2026-11-04',
+      title: '請求日まであと7日',
+      body: '11/11・¥6,480 の請求予定',
+      priceAtNotification: 6480,
+      subscriptionExists: true,
+      viewedAt: createdAt,
+      webPushStatus: 'sent',
+      createdAt,
+    },
+  ];
+}
+
+let mockNotifications: NotificationDto[] = initialNotifications();
+
+function mockNotificationList(): NotificationListDto {
+  // subscriptionExists は、仮データのサブスク（削除できる）に今もあるか
+  const items = mockNotifications.map((item) => ({ ...item, subscriptionExists: subscriptions.some((s) => s.subscriptionId === item.subscriptionId) }));
+  return { items, nextCursor: null, unreadCount: mockNotifications.filter((item) => item.viewedAt === null).length };
+}
+
+addMockRoute('GET', '/api/notifications', () => ({ data: mockNotificationList() }));
+addMockRoute('POST', '/api/notifications/:id/read', ({ id }) => {
+  const found = mockNotifications.find((item) => item.notificationId === id);
+  if (!found) return notFound();
+  const viewedAt = found.viewedAt ?? new Date().toISOString();
+  mockNotifications = mockNotifications.map((item) => (item.notificationId === id ? { ...item, viewedAt } : item));
+  return { data: { viewedAt } satisfies MarkReadResult };
+});
+addMockRoute('POST', '/api/notifications/read-all', () => {
+  const now = new Date().toISOString();
+  const updatedCount = mockNotifications.filter((item) => item.viewedAt === null).length;
+  mockNotifications = mockNotifications.map((item) => (item.viewedAt === null ? { ...item, viewedAt: now } : item));
+  return { data: { updatedCount } satisfies ReadAllResult };
+});
+addMockRoute('PATCH', '/api/account', (_params, body) => {
+  const value = (body as { accountNotificationEnabled?: unknown } | null)?.accountNotificationEnabled;
+  if (typeof value !== 'boolean') {
+    return { status: 400, error: { code: 'VALIDATION_ERROR', message: '入力内容を確認してください', field: 'accountNotificationEnabled' } };
+  }
+  return { data: { accountNotificationEnabled: value } satisfies UpdateAccountResult };
+});

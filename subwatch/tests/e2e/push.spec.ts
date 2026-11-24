@@ -130,7 +130,7 @@ test.describe('S-09 ⑤ この端末の Push 状態', () => {
     await expect(pushStatus(page)).toHaveText(STATUS.off);
     await expect(pushSwitch(page)).toHaveAttribute('aria-checked', 'false');
     expect((await fakeState(page)).unsubscribeCalls).toBe(1);
-    expect(account.calls()).toBe(2); // Gates の1回と、⑤の確認の1回
+    await expect.poll(() => account.calls()).toBe(3); // Gates の1回と、⑤の確認の1回と、③（04-21 の NotificationSection）の1回
   });
 
   test('No.64 ID があれば「この端末で受け取る：オン」のまま（ブラウザの購読を解除しない）', async ({ page }) => {
@@ -159,7 +159,7 @@ test.describe('S-09 ⑤ この端末の Push 状態', () => {
     const user = await loginAsNewUser(page);
     const account = await openSettings(page, user.email, []);
     await expect(pushStatus(page)).toHaveText(STATUS.off);
-    expect(account.calls()).toBe(1); // Gates の1回だけ
+    await expect.poll(() => account.calls()).toBe(2); // Gates の1回と、③（04-21 の NotificationSection）の1回。⑤の確認では読まない
   });
 
   test('許可が拒否されていると「許可されていません」と案内。④を押しても④の下に同じ文を重ねない', async ({ page }) => {
