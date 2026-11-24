@@ -105,6 +105,18 @@ test.describe('S-01 ユーザー登録', () => {
       { data: { uid: 'mock', initialized: true } },
     ]);
     const account = await mockApi(page, 'GET', '/api/account', accountResponse(email));
+    // 04-09：ホームが GET /api/dashboard を読むようになった（bootstrap を mockApi にしたので users が無く、本物は 409 になる）
+    await mockApi(page, 'GET', '/api/dashboard', {
+      data: {
+        weekTotal: { count: 0, amountJPY: 0 },
+        monthTotal: { count: 0, amountJPY: 0 },
+        monthlyEquivalentJPY: 0,
+        yearlyEquivalentJPY: 0,
+        subscriptionCount: 0,
+        unreadCount: 0,
+        nextBills: [],
+      },
+    });
     await openRegister(page);
     await fillRegisterForm(page, email);
     await termsBox(page).check();
