@@ -1,0 +1,7 @@
+{
+  "name": "SubWatch",
+  "short_name": "SubWatch",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone"
+}
