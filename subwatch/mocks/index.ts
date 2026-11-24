@@ -152,7 +152,8 @@ export function resetMockData(): void {
 }
 
 function duplicateKey(name: string): string {
-  return name.replace(/^[\s　]+|[\s　]+$/g, '').replace(/[A-Z]/g, (c) => c.toLowerCase());
+  // lib/validation.ts の duplicateKey と同じ判定（全角・半角をそろえる。決まりの一覧 C-17）
+  return name.normalize('NFKC').replace(/^[\s　]+|[\s　]+$/g, '').replace(/[A-Z]/g, (c) => c.toLowerCase());
 }
 
 // ---- 04-01 が置いた仮データ：アカウント（API一覧 No.1・2） ----

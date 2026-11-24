@@ -38,11 +38,12 @@ describe('No.58 検索（サービス名の部分一致。前後の空白・大�
     expect(names(filterSubscriptions(TEST_DATA, { query: '　Netflix　' }))).toEqual(['Netflix']);
   });
 
-  it('No.58 全角の英字は、半角とも大文字小文字とも同じにしない（「ｎｅｔｆｌｉｘ」「ＮＥＴＦＬＩＸ」は0件）', () => {
-    expect(filterSubscriptions(TEST_DATA, { query: 'ｎｅｔｆｌｉｘ' })).toEqual([]);
-    expect(filterSubscriptions(TEST_DATA, { query: 'ＮＥＴＦＬＩＸ' })).toEqual([]);
-    expect(matchesSearch('ＮＥＴＦＬＩＸ', 'ｎｅｔｆｌｉｘ')).toBe(false); // 全角は小文字にしない
-    expect(matchesSearch('ＮＥＴＦＬＩＸ', 'ＮＥＴ')).toBe(true);
+  it('No.58 全角と半角をそろえる（決まりの一覧 C-17）：「ｎｅｔｆｌｉｘ」「ＮＥＴＦＬＩＸ」でも Netflix', () => {
+    expect(names(filterSubscriptions(TEST_DATA, { query: 'ｎｅｔｆｌｉｘ' }))).toEqual(['Netflix']);
+    expect(names(filterSubscriptions(TEST_DATA, { query: 'ＮＥＴＦＬＩＸ' }))).toEqual(['Netflix']);
+    expect(matchesSearch('ＮＥＴＦＬＩＸ', 'net')).toBe(true); // 全角で登録した名前も、半角で探せる
+    expect(matchesSearch('ＮＥＴＦＬＩＸ', 'ｎｅｔ')).toBe(true);
+    expect(matchesSearch('ﾈｯﾄﾌﾘｯｸｽ', 'ネット')).toBe(true); // 半角カナも全角カナと同じ
   });
 
   it('No.58 検索語の途中の空白はそのまま比べる（「Adobe Creative」は合い、「Adobe  Creative」「AdobeCreative」は合わない）', () => {

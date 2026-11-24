@@ -191,7 +191,7 @@ test('統合① 本物の API の 409 DUPLICATE_CANDIDATE で S-05 に同名の�
   await page.goto('/subscriptions/new');
   await expect(page.getByRole('heading', { level: 1, name: 'サブスクを追加' })).toBeVisible();
   await waitForHydration(page, 'form');
-  // 前後の空白と英字の大文字小文字は、同名の判定では区別しない（lib/validation.ts の duplicateKey）
+  // 前後の空白・英字の大文字小文字・全角と半角は、同名の判定では区別しない（lib/validation.ts の duplicateKey。決まりの一覧 C-17）
   await fillSubscriptionForm(page, { serviceName: ' spotify ', price: '980', billingCycle: 'monthly', firstBillingDate: addDays(todayJST(), 1), category: 'music' });
   await saveButton(page).click();
 
