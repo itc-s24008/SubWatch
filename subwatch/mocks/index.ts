@@ -274,5 +274,7 @@ addMockRoute('DELETE', '/api/push/subscribe', () => ({ status: 204 }));
 // ===== 04-13：カレンダー（GET /api/calendar） ここに足す =====
 
 // ===== 04-17：アカウント削除（DELETE /api/account） ここに足す =====
+// いつも 200 {status:'deleted'}（仮データは何も消さない。画面の②の再認証は Firebase へ行くので、仮データでもログインしていないと進めない）
+addMockRoute('DELETE', '/api/account', () => ({ data: { status: 'deleted' } }));
 
 // ===== 04-21：通知（GET /api/notifications など）・PATCH /api/account ここに足す =====
