@@ -153,5 +153,33 @@ export async function seedSubscriptions(uid: string, items: Partial<Subscription
 }
 
 // ===== 04-12：seedPushSubscription ここに足す =====
+import { createHash } from 'node:crypto';
+
+// Push 購読を Firestore に直接置く（API を通さない。users は作らない）。書かなかった項目は既定の値
+// （endpoint は https://push.example.com/send/（連番）、p256dh・auth はテスト用の文字列、userAgent は null、createdAt・lastSeenAt は今）。
+// ID は webPushId＝sha256(endpoint)。置いたドキュメント（保存の形。DB設計書 テーブルNo.4）を返す
+let pushCounter = 0;
+export async function seedPushSubscription(
+  uid: string,
+  fields: Record<string, unknown> = {},
+): Promise<{ webPushId: string; uid: string; endpoint: string; p256dh: string; auth: string; userAgent: string | null; createdAt: Timestamp; lastSeenAt: Timestamp | null }> {
+  pushCounter += 1;
+  const now = Timestamp.now();
+  const endpoint = typeof fields.endpoint === 'string' ? fields.endpoint : `https://push.example.com/send/${Date.now()}-${pushCounter}`;
+  const webPushId = createHash('sha256').update(endpoint, 'utf8').digest('hex');
+  const doc = {
+    webPushId,
+    uid,
+    endpoint,
+    p256dh: 'test-p256dh',
+    auth: 'test-auth',
+    userAgent: null,
+    createdAt: now,
+    lastSeenAt: now,
+    ...fields,
+  } as { webPushId: string; uid: string; endpoint: string; p256dh: string; auth: string; userAgent: string | null; createdAt: Timestamp; lastSeenAt: Timestamp | null };
+  await adminDb().collection('users').doc(uid).collection('webPushSubscriptions').doc(webPushId).set(doc);
+  return doc;
+}
 
 // ===== 04-14：seedNotificationEvents・cronAuthHeaders ここに足す =====

@@ -6,6 +6,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { MOCKS_ENABLED } from '@/lib/api-client'; // 画面テストの口（window.__SUBWATCH_E2E__）も、この import で置かれる
 import { getFirebaseAuth } from '@/lib/firebase-client';
+import '@/lib/push-client'; // 04-12：ログアウト・401 の後始末で、この端末の Push 購読を解除する処理を登録する
 
 interface AuthState {
   user: User | null;
