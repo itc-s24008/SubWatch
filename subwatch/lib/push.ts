@@ -212,3 +212,237 @@ export async function deletePushSubscription(uid: string, endpoint: string, opti
 }
 
 // ===== 04-15：Push の送信（PushSender）ここに足す =====
+// 詳細_F-06 の手順8〜9、API共通仕様 B26・B90・B96・B106、DB設計書 テーブルNo.3・3.補足設計 B16
+//   pushSender：Cron（04-14）に渡す PushSender（11/25 の統合で、Cron の route がこれを使う）
+//   createPushSender({ send?, store?, sleep?, now?, timeoutMs? })：送信関数・保存先・待ち・時刻・1端末の時間切れを差し替えた PushSender を作る
+// PushSender が行うこと：その利用者の購読を読む → webPushDeliveredIds に無い端末へ送る（同時に最大10。1端末10秒で打ち切り。
+//   5xx・429・時間切れ・通信エラーは1秒後に1回だけ再試行）→ 成功した端末はすぐ webPushDeliveredIds に足して保存 →
+//   404/410 の購読を削除（401/403 は残してログ）→ 最後に webPushStatus・webPushSentAt・webPushLastErrorCode を保存 → PushResult を返す
+// 送信の失敗では例外を投げない（PushResult で返す）。Firestore の保存の失敗は例外のまま（Cron が実行を failed にする）。
+// ただし、保存のときに通知イベントが無い（NOT_FOUND。送信の間にアカウントが削除された）ときは、作り直さずに無視する
+import webpush from 'web-push';
+import { FieldValue } from 'firebase-admin/firestore';
+import { isFirestoreNotFound } from '@/lib/errors';
+import type { NotificationEvent, PushResult, PushSender, WebPushStatus } from '@/lib/types';
+
+export const PUSH_SEND = {
+  ttlSeconds: 86_400, // TTL（詳細_F-06 の 8-5）
+  urgency: 'normal' as const,
+  timeoutMs: 10_000, // 1端末あたり。送信を始めてから10秒で打ち切る（自分のタイマーで計る）
+  retryDelayMs: 1_000, // 再試行は1秒後に1回だけ
+  concurrency: 10, // 同時送信は最大10
+} as const;
+
+// Push の中身（詳細_F-06 の 8-5、要件定義書「共通ルール」の通知の文面）。title の先頭にサービス名を付ける
+export interface PushPayload {
+  title: string;
+  body: string;
+  url: string;
+  notificationId: string;
+}
+export function pushPayloadOf(event: Pick<NotificationEvent, 'serviceNameAtNotification' | 'title' | 'body' | 'subscriptionId' | 'notificationId'>): PushPayload {
+  return {
+    title: `${event.serviceNameAtNotification}：${event.title}`,
+    body: event.body,
+    url: `/subscriptions/${event.subscriptionId}`,
+    notificationId: event.notificationId,
+  };
+}
+
+// 送り先（webPushSubscriptions の1件のうち、送信に要る項目）
+export interface PushTarget {
+  webPushId: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+// 送信関数：成功なら戻る。失敗は例外（HTTP の応答があれば statusCode を持つ。VAPID 鍵が無いときは VapidNotConfiguredError）
+export type WebPushSend = (target: PushTarget, payload: string) => Promise<void>;
+
+export class VapidNotConfiguredError extends Error {
+  constructor() {
+    super('VAPID の鍵が設定されていません');
+    this.name = 'VapidNotConfiguredError';
+  }
+}
+
+// 既定の送信関数（web-push）。VAPID の鍵と subject は環境変数から読む（無ければ送らずに VapidNotConfiguredError）
+export const webPushSend: WebPushSend = async (target, payload) => {
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
+  const privateKey = process.env.VAPID_PRIVATE_KEY ?? '';
+  const subject = process.env.VAPID_SUBJECT ?? '';
+  if (!publicKey || !privateKey || !subject) throw new VapidNotConfiguredError();
+  await webpush.sendNotification({ endpoint: target.endpoint, keys: { p256dh: target.p256dh, auth: target.auth } }, payload, {
+    TTL: PUSH_SEND.ttlSeconds,
+    urgency: PUSH_SEND.urgency,
+    vapidDetails: { subject, publicKey, privateKey },
+    timeout: PUSH_SEND.timeoutMs, // 通信が無い時間の上限（打ち切りは attempt のタイマーで行う）
+  });
+};
+
+export interface PushSaveResult {
+  status: Exclude<WebPushStatus, 'pending'>;
+  deliveredIds: string[];
+  sentAt: Date | null; // sent・partially_sent・failed は送信を終えた時刻、skipped は null
+  lastErrorCode: string | null;
+}
+
+// 保存先（テストで差し替えられる）。既定は Firestore（adminDb）
+export interface PushStore {
+  listTargets(uid: string): Promise<PushTarget[]>;
+  addDelivered(uid: string, notificationId: string, webPushId: string, at: Date): Promise<void>; // 成功した端末をすぐ足す
+  deleteSubscription(uid: string, webPushId: string): Promise<void>; // 404/410
+  // 最後の結果。保存するのは webPushStatus・webPushDeliveredIds・webPushSentAt・webPushLastErrorCode と updatedAt だけ（update）
+  saveResult(uid: string, notificationId: string, result: PushSaveResult): Promise<void>;
+}
+
+// 通知イベントの update。無ければ（NOT_FOUND）作り直さずに無視する
+async function updateEventIgnoringMissing(ref: FirebaseFirestore.DocumentReference, fields: Record<string, unknown>): Promise<void> {
+  try {
+    await ref.update(fields);
+  } catch (error) {
+    if (isFirestoreNotFound(error)) return;
+    throw error;
+  }
+}
+
+export function firestorePushStore(db: Firestore = adminDb()): PushStore {
+  const userRef = (uid: string) => db.collection('users').doc(uid);
+  return {
+    async listTargets(uid) {
+      const snapshot = await userRef(uid).collection('webPushSubscriptions').get();
+      return snapshot.docs.map((doc) => ({
+        webPushId: doc.id,
+        endpoint: String(doc.get('endpoint') ?? ''),
+        p256dh: String(doc.get('p256dh') ?? ''),
+        auth: String(doc.get('auth') ?? ''),
+      }));
+    },
+    async addDelivered(uid, notificationId, webPushId, at) {
+      await updateEventIgnoringMissing(userRef(uid).collection('notificationEvents').doc(notificationId), {
+        webPushDeliveredIds: FieldValue.arrayUnion(webPushId),
+        updatedAt: Timestamp.fromDate(at),
+      });
+    },
+    async deleteSubscription(uid, webPushId) {
+      await userRef(uid).collection('webPushSubscriptions').doc(webPushId).delete();
+    },
+    async saveResult(uid, notificationId, result) {
+      await updateEventIgnoringMissing(userRef(uid).collection('notificationEvents').doc(notificationId), {
+        webPushStatus: result.status,
+        webPushDeliveredIds: result.deliveredIds,
+        webPushSentAt: result.sentAt ? Timestamp.fromDate(result.sentAt) : null,
+        webPushLastErrorCode: result.lastErrorCode,
+        updatedAt: Timestamp.fromDate(result.sentAt ?? new Date()),
+      });
+    },
+  };
+}
+
+export interface CreatePushSenderOptions {
+  send?: WebPushSend; // 送信関数（既定は web-push）
+  store?: PushStore; // 保存先（既定は Firestore）
+  sleep?: (ms: number) => Promise<void>; // 再試行の前の1秒（テストではすぐ戻す）
+  now?: () => Date; // webPushSentAt の時刻
+  timeoutMs?: number; // 1端末あたりの時間切れ（既定10秒）
+}
+
+type Attempt = { ok: true } | { ok: false; code: string; statusCode: number | null; retryable: boolean };
+
+function statusCodeOf(error: unknown): number | null {
+  if (error && typeof error === 'object' && 'statusCode' in error) {
+    const code = (error as { statusCode: unknown }).statusCode;
+    if (typeof code === 'number' && Number.isFinite(code)) return code;
+  }
+  return null;
+}
+
+// 失敗の分け方（詳細_F-06 の 8-3・8-4、DB設計書 テーブルNo.3 の webPushLastErrorCode）
+//   HTTP の応答あり：その番号の文字列。5xx・429 は再試行する。401/403・404/410・そのほかの4xx は再試行しない
+//   時間切れ：'timeout'（再試行する）。statusCode の無い通信エラー：'network_error'（再試行する）。VAPID 鍵の未設定：'vapid_not_configured'（再試行しない）
+export function classifySendError(error: unknown): Exclude<Attempt, { ok: true }> {
+  if (error instanceof VapidNotConfiguredError) return { ok: false, code: 'vapid_not_configured', statusCode: null, retryable: false };
+  const statusCode = statusCodeOf(error);
+  if (statusCode === null) return { ok: false, code: 'network_error', statusCode: null, retryable: true };
+  return { ok: false, code: String(statusCode), statusCode, retryable: statusCode >= 500 || statusCode === 429 };
+}
+
+const TIMEOUT = Symbol('timeout');
+
+export function createPushSender(options: CreatePushSenderOptions = {}): PushSender {
+  const send = options.send ?? webPushSend;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const now = options.now ?? (() => new Date());
+  const timeoutMs = options.timeoutMs ?? PUSH_SEND.timeoutMs;
+
+  // 1回送る。送信を始めてから timeoutMs で打ち切る（web-push の timeout は通信が無い時間の上限なので、自分のタイマーで計る）
+  async function attempt(target: PushTarget, payload: string): Promise<Attempt> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expired = new Promise<typeof TIMEOUT>((resolve) => {
+      timer = setTimeout(() => resolve(TIMEOUT), timeoutMs);
+    });
+    try {
+      const sending = Promise.resolve().then(() => send(target, payload));
+      sending.catch(() => undefined); // 打ち切った後の失敗を拾う（未処理の Promise にしない）
+      const result = await Promise.race([sending.then(() => 'sent' as const), expired]);
+      if (result === TIMEOUT) return { ok: false, code: 'timeout', statusCode: null, retryable: true };
+      return { ok: true };
+    } catch (error) {
+      return classifySendError(error);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // 1端末：失敗が再試行できるものなら、1秒後に1回だけ再試行する
+  async function sendToDevice(target: PushTarget, payload: string): Promise<Attempt> {
+    const first = await attempt(target, payload);
+    if (first.ok || !first.retryable) return first;
+    await sleep(PUSH_SEND.retryDelayMs);
+    return attempt(target, payload);
+  }
+
+  return async (uid: string, event: NotificationEvent): Promise<PushResult> => {
+    const store = options.store ?? firestorePushStore();
+    const delivered = [...event.webPushDeliveredIds]; // 渡された値を使う（読み直さない）
+    const targets = (await store.listTargets(uid)).filter((t) => !delivered.includes(t.webPushId));
+    const payload = JSON.stringify(pushPayloadOf(event));
+    const failureCodes: string[] = []; // 失敗が分かった順
+    let failures = 0;
+
+    // 同時に最大10端末
+    const queue = [...targets];
+    async function worker(): Promise<void> {
+      for (let target = queue.shift(); target; target = queue.shift()) {
+        const result = await sendToDevice(target, payload);
+        if (result.ok) {
+          delivered.push(target.webPushId);
+          await store.addDelivered(uid, event.notificationId, target.webPushId, now());
+          continue;
+        }
+        failures += 1;
+        failureCodes.push(result.code);
+        if (result.statusCode === 404 || result.statusCode === 410) {
+          await store.deleteSubscription(uid, target.webPushId);
+        } else if (result.statusCode === 401 || result.statusCode === 403) {
+          // 設定の誤り（鍵など）。購読は残す。出すのは code と HTTP ステータスだけ（endpoint・鍵・webPushId は出さない）
+          console.error(JSON.stringify({ code: 'PUSH_CONFIG_ERROR', status: result.statusCode }));
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(PUSH_SEND.concurrency, queue.length) }, () => worker()));
+
+    let status: PushResult['status'];
+    if (targets.length === 0 && delivered.length === 0) status = 'skipped'; // 購読も、送り終えた端末も無い
+    else if (failures === 0) status = 'sent';
+    else if (delivered.length > 0) status = 'partially_sent';
+    else status = 'failed';
+    const lastErrorCode = failureCodes.length > 0 ? failureCodes[failureCodes.length - 1] : null;
+    const sentAt = status === 'skipped' ? null : now();
+    await store.saveResult(uid, event.notificationId, { status, deliveredIds: delivered, sentAt, lastErrorCode });
+    return { status, deliveredIds: delivered, lastErrorCode };
+  };
+}
+
+export const pushSender: PushSender = createPushSender();

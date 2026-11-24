@@ -1,4 +1,4 @@
-// public/sw.js（04-12：install・activate・notificationclick。API共通仕様 B96、詳細_F-12 の手順7）
+// public/sw.js（04-12：install・activate・notificationclick。04-15：push。API共通仕様 B96、詳細_F-12 の手順7）
 // sw.js を node:vm で読み込み、self（Service Worker の全体）を偽物にして、登録された処理を呼ぶ
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -27,7 +27,7 @@ function loadServiceWorker(options: { clients?: FakeClient[] } = {}) {
     skipWaiting: vi.fn(),
     location: new URL(`${ORIGIN}/sw.js`),
     clients,
-    registration: { showNotification: vi.fn(async () => undefined) },
+    registration: { showNotification: vi.fn(async (_title: string, _options?: unknown) => undefined) },
   };
   const code = readFileSync(path.join(process.cwd(), 'public/sw.js'), 'utf8');
   vm.runInNewContext(code, { self, URL, console });
@@ -98,5 +98,50 @@ describe('sw.js', () => {
     const { listeners, clients } = loadServiceWorker({ clients: [] });
     await dispatch(listeners, 'notificationclick', notificationClick(url === undefined ? null : { url, notificationId: 'n1' }));
     expect(clients.openWindow).toHaveBeenCalledWith(`${ORIGIN}/`);
+  });
+});
+
+// ===== 04-15：受信（push）のテスト =====
+function pushEvent(data: unknown) {
+  if (data === undefined) return { data: null };
+  return {
+    data: {
+      json: () => {
+        if (typeof data === 'string') return JSON.parse(data);
+        return data;
+      },
+    },
+  };
+}
+
+describe('sw.js の受信（04-15。API共通仕様 B96）', () => {
+  it('Push の中身の title・body で通知を出し、data は { url, notificationId }、tag は notificationId、icon・badge は /icon-192.png', async () => {
+    const { listeners, self } = loadServiceWorker();
+    const payload = { title: 'Spotify：請求日まであと1日', body: '11/05・¥980 の請求予定', url: '/subscriptions/abc', notificationId: 'n1' };
+    await dispatch(listeners, 'push', pushEvent(payload));
+    expect(self.registration.showNotification).toHaveBeenCalledWith('Spotify：請求日まであと1日', {
+      body: '11/05・¥980 の請求予定',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: 'n1',
+      data: { url: '/subscriptions/abc', notificationId: 'n1' },
+    });
+  });
+
+  it.each([
+    ['中身が無い', undefined],
+    ['JSON でない', 'not json'],
+  ])('%s Push は、タイトル「SubWatch」だけの通知を出す', async (_name, data) => {
+    const { listeners, self } = loadServiceWorker();
+    await dispatch(listeners, 'push', pushEvent(data));
+    expect(self.registration.showNotification).toHaveBeenCalledWith('SubWatch', { icon: '/icon-192.png', badge: '/icon-192.png' });
+  });
+
+  it('受信で入れた data をタップの処理が読み、?from=push を付けて開く（受信 → タップのつながり）', async () => {
+    const { listeners, self, clients } = loadServiceWorker({ clients: [] });
+    await dispatch(listeners, 'push', pushEvent({ title: 't', body: 'b', url: '/subscriptions/xyz', notificationId: 'n2' }));
+    const options = self.registration.showNotification.mock.calls[0][1] as { data: unknown };
+    await dispatch(listeners, 'notificationclick', { notification: { data: options.data, close: vi.fn() } });
+    expect(clients.openWindow).toHaveBeenCalledWith('https://subwatch.example.com/subscriptions/xyz?from=push');
   });
 });

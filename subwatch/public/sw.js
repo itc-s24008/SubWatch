@@ -1,7 +1,7 @@
 // SubWatch の Service Worker（04-12。API共通仕様 B95・B96、詳細_F-12 の手順7）
 // S-09 で「この端末でPushを受け取る」をオンにしたときだけ登録する。通信の横取りとオフライン用のキャッシュはしない（fetch を扱わない）。
 // pushsubscriptionchange は扱わない（Service Worker は ID token を持たないので、サーバーに登録し直せない。既知の制限）
-// 受信（push）の処理は 04-15 が足す。showNotification の data は { url, notificationId }（タップの処理がこれを読む）
+// 受信（push）の処理は 04-15（このファイルの下）。showNotification の data は { url, notificationId }（タップの処理がこれを読む）
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -57,3 +57,32 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ===== 04-15：受信（push イベントで通知を出す）ここに足す =====
+// Push の中身（詳細_F-06 の 8-5）：{ title:「サービス名：title」, body, url:「/subscriptions/{subscriptionId}」, notificationId }
+// showNotification の data は { url, notificationId }（タップの処理〔上の notificationclick〕が読む。API共通仕様 B96）。
+// icon・badge は /icon-192.png、tag は notificationId（同じ通知が2回届いても1つにまとまる）。
+// 中身が無い・JSON でない Push は、タイトル「SubWatch」だけの通知を出す（タップするとホームを開く）
+function pushNotificationOf(data) {
+  let payload = null;
+  try {
+    payload = data ? data.json() : null;
+  } catch (error) {
+    payload = null;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { title: 'SubWatch', options: { icon: '/icon-192.png', badge: '/icon-192.png' } };
+  }
+  const title = typeof payload.title === 'string' && payload.title !== '' ? payload.title : 'SubWatch';
+  const options = {
+    body: typeof payload.body === 'string' ? payload.body : '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: payload.url, notificationId: payload.notificationId },
+  };
+  if (typeof payload.notificationId === 'string' && payload.notificationId !== '') options.tag = payload.notificationId;
+  return { title, options };
+}
+
+self.addEventListener('push', (event) => {
+  const { title, options } = pushNotificationOf(event.data);
+  event.waitUntil(self.registration.showNotification(title, options));
+});
