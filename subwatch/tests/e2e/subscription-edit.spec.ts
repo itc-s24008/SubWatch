@@ -181,15 +181,10 @@ test('保存のときの 404 は、入力内容を残したまま［キャンセ
   await expect(page.getByText('見つかりません', { exact: true })).toHaveCount(0); // 開くときの「見つかりません」とは分ける
 });
 
-// 「削除しました」は S-04 が takeFlash で出す（04-09）。04-09 が入る前は、flash に置かれたことを見る
+// 「削除しました」は S-04 が takeFlash で出す（04-09。画面設計書 S-04 B25）。
+// 統合①（11/19）で 04-09 が入ったので、「flash に置かれた」だけでは通さず、S-04 の画面名の下に出ることを見る（04-09 が入る前の両方を通す形から直した）
 async function expectDeletedFlash(page: Page) {
-  await expect
-    .poll(async () => {
-      const flash = await page.evaluate(() => window.sessionStorage.getItem('subwatch.flash'));
-      const shown = await page.getByRole('main').getByRole('status').filter({ hasText: '削除しました' }).count();
-      return flash === '削除しました' || shown > 0;
-    })
-    .toBe(true);
+  await expect(page.getByRole('main').getByRole('status').filter({ hasText: '削除しました' })).toBeVisible();
 }
 
 test('削除の成功：確認ダイアログの［削除する］で DELETE し、S-04 へ置き換える（「削除しました」を置く）', async ({ page }) => {

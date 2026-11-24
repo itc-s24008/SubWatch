@@ -10,11 +10,12 @@
 //   nextBillingPreview(values, today)：⑧の表示（「11/08（¥1,590）」。請求額が正しくないときは日付だけ、計算できないときは「―」）
 //   canChooseEndOfMonth(firstBillingDate)：⑦の「毎月末日」を選べるか（⑥が正しい日付で、月末日のとき）
 //
-// 【仮の関数】nextBillingDate・isValidDate・isEndOfMonth（04-04 の lib/billing.ts と同じ引数）と、
-// hasCardLikeNumber・hasHttpScheme（04-07 の lib/validation.ts と同じ規則）は、まだ main に入っていないので、
-// このファイルの下に仮に置いた（export しない）。統合①で lib/billing.ts・lib/validation.ts の import に置き換えて、仮の関数を消す
+// 日付の部品・次回請求日（nextBillingDate・isValidDate・isEndOfMonth）は lib/billing.ts、カード番号様と URL の判定
+// （hasCardLikeNumber・hasHttpScheme）は lib/validation.ts のものを使う（保存の検証と同じ関数。統合①〔11/19〕で仮の関数から置き換えた）
+import { isEndOfMonth, isValidDate, nextBillingDate } from '@/lib/billing';
 import { formatMonthDay, formatYen } from '@/lib/format';
 import type { BillingCycle, BillingDayMode, Category, CreateSubscriptionBody, DateString, SubscriptionDto, UpdateSubscriptionBody } from '@/lib/types';
+import { FIELD_MESSAGES, hasCardLikeNumber, hasHttpScheme } from '@/lib/validation';
 
 export interface FormValues {
   serviceName: string;
@@ -57,20 +58,21 @@ export const FORM_FIELDS: readonly FormField[] = [
 export const BILLING_CYCLE_OPTIONS: readonly BillingCycle[] = ['monthly', 'quarterly', 'semiAnnual', 'yearly'];
 export const CATEGORY_OPTIONS: readonly Category[] = ['video', 'music', 'cloud', 'learning', 'ai', 'game', 'news', 'work', 'other'];
 
-// エラー文（要件定義書「共通ルール」の入力項目の表・画面設計書 S-05）
+// エラー文（要件定義書「共通ルール」の入力項目の表・画面設計書 S-05）。
+// 文は保存の検証（04-07 の lib/validation.ts の FIELD_MESSAGES）と同じものを使う（統合①〔11/19〕で、同じ文の2か所の定義を1つにそろえた。文は変わっていない）
 export const FORM_MESSAGES = {
-  serviceName: 'サービス名を入力してください',
-  planName: 'プラン名は100文字以内で入力してください',
-  price: '請求額は0〜10,000,000の整数で入力してください',
-  billingCycle: '請求周期を選んでください',
-  date: '正しい日付を選んでください',
-  endOfMonth: '『毎月末日』は請求日が月末日のときだけ選べます',
-  trialEndDateRequired: '最終無料日を入力してください',
-  trialEndDateOrder: '最終無料日は請求日より前の日付を入力してください',
-  url: 'http:// か https:// から始まるURLを入力してください',
-  paymentMethod: '支払方法は80文字以内で入力してください',
-  memo: 'メモは1000文字以内で入力してください',
-  cardLike: 'カード番号は入力できません',
+  serviceName: FIELD_MESSAGES.serviceName,
+  planName: FIELD_MESSAGES.planName,
+  price: FIELD_MESSAGES.price,
+  billingCycle: FIELD_MESSAGES.billingCycle,
+  date: FIELD_MESSAGES.date,
+  endOfMonth: FIELD_MESSAGES.endOfMonth,
+  trialEndDateRequired: FIELD_MESSAGES.trialEndRequired,
+  trialEndDateOrder: FIELD_MESSAGES.trialEndBefore,
+  url: FIELD_MESSAGES.url,
+  paymentMethod: FIELD_MESSAGES.paymentMethod,
+  memo: FIELD_MESSAGES.memo,
+  cardLike: FIELD_MESSAGES.cardLike,
 } as const;
 
 const MIN_DATE = '2000-01-01';
@@ -215,71 +217,4 @@ export function nextBillingPreview(values: FormValues, today: DateString): strin
   }
   const price = parsePrice(values.price);
   return price === null ? formatMonthDay(date) : `${formatMonthDay(date)}（${formatYen(price)}）`;
-}
-
-// ===== 仮の関数（統合①で lib/billing.ts・lib/validation.ts の import に置き換えて消す。export しない） =====
-
-const CYCLE_MONTHS: Record<BillingCycle, number> = { monthly: 1, quarterly: 3, semiAnnual: 6, yearly: 12 };
-
-function monthLength(year: number, month: number): number {
-  if (month === 2) return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28;
-  return [4, 6, 9, 11].includes(month) ? 30 : 31;
-}
-
-function parseYmd(s: unknown): { year: number; month: number; day: number } | null {
-  if (typeof s !== 'string') return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (month < 1 || month > 12 || day < 1 || day > monthLength(year, month)) return null;
-  return { year, month, day };
-}
-
-function pad(n: number, width: number): string {
-  return String(n).padStart(width, '0');
-}
-
-// 仮：lib/billing.ts の isValidDate と同じ（形が YYYY-MM-DD で実在する日付か。範囲は呼ぶ側が調べる）
-function isValidDate(s: unknown): s is DateString {
-  return parseYmd(s) !== null;
-}
-
-// 仮：lib/billing.ts の isEndOfMonth と同じ（壊れた日付は RangeError）
-function isEndOfMonth(s: DateString): boolean {
-  const ymd = parseYmd(s);
-  if (!ymd) throw new RangeError('日付が正しくありません');
-  return ymd.day === monthLength(ymd.year, ymd.month);
-}
-
-// 仮：lib/billing.ts の nextBillingDate と同じ（今日を含む、今日以降で最も早い請求日。fixedDay は月に無い日を月末日に丸め、
-// 前回丸めた日を次の基準にしない。endOfMonth は請求のある月の末日。壊れた入力は RangeError）
-function nextBillingDate(firstBillingDate: DateString, billingCycle: BillingCycle, billingDayMode: BillingDayMode, today: DateString): DateString {
-  const first = parseYmd(firstBillingDate);
-  const now = parseYmd(today);
-  const months = CYCLE_MONTHS[billingCycle];
-  if (!first || !now || months === undefined || (billingDayMode !== 'fixedDay' && billingDayMode !== 'endOfMonth')) {
-    throw new RangeError('請求日・周期・方式が正しくありません');
-  }
-  const monthDiff = (now.year - first.year) * 12 + (now.month - first.month);
-  for (let k = Math.max(0, Math.floor(monthDiff / months) - 1); ; k += 1) {
-    const index = first.month - 1 + k * months;
-    const year = first.year + Math.floor(index / 12);
-    const month = (index % 12) + 1;
-    const last = monthLength(year, month);
-    const day = billingDayMode === 'endOfMonth' ? last : Math.min(first.day, last);
-    const date = `${pad(year, 4)}-${pad(month, 2)}-${pad(day, 2)}`;
-    if (date >= today) return date;
-  }
-}
-
-// 仮：lib/validation.ts の hasCardLikeNumber と同じ（API共通仕様 B17 の正規表現）
-function hasCardLikeNumber(s: string): boolean {
-  return /\d(?:[ 　-]?\d){12,}/.test(s);
-}
-
-// 仮：lib/validation.ts の hasHttpScheme と同じ（API共通仕様 B63）
-function hasHttpScheme(s: string): boolean {
-  return /^https?:\/\//i.test(s);
 }
