@@ -3,10 +3,11 @@
 
 // ===== 04-09：ホームの集計（GET /api/dashboard。詳細_F-04、API共通仕様 B75・B76・B78・B79、共通ロジック） =====
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { addDays, annualAmount, billingDatesInRange, daysBetween, daysInMonth, monthlyEquivalentTotal, nextBillingDate, weekdayOf } from '@/lib/billing';
+import { addDays, annualAmount, billingDatesInRange, daysBetween, monthlyEquivalentTotal, nextBillingDate, weekdayOf } from '@/lib/billing';
 import { adminDb } from '@/lib/firebase-admin';
 import { listSubscriptions } from '@/lib/subscriptions';
 import type { BillingCycle, BillingDayMode, DashboardDto, DateString, SubscriptionDoc } from '@/lib/types';
+import { monthOf } from '@/lib/calendar'; // 11/25 のα版の統合で足した（monthRange を monthDateRange にそろえるため。monthDateRange は 04-13 の見出しの下で import 済み）
 
 // 集計に使うサブスクの形（保存の形 SubscriptionDoc から、集計に要る項目だけを取り出したもの）。
 // 保存された値が壊れていることがあるので、price・billingCycle などは確かめずにそのまま入れる（集計の中で RangeError になったら外す）
@@ -45,12 +46,9 @@ export function weekRange(today: DateString): { from: DateString; to: DateString
   return { from, to: addDays(from, 6) };
 }
 
-// 今月（1日〜末日）
+// 今月（1日〜末日）。月の範囲は lib/calendar.ts の monthDateRange だけで求める（11/25 のα版の統合で、同じ計算を自分で書いていたのをそろえた。名前と値は同じ）
 export function monthRange(today: DateString): { from: DateString; to: DateString } {
-  const year = Number(today.slice(0, 4));
-  const month = Number(today.slice(5, 7));
-  const prefix = today.slice(0, 7);
-  return { from: `${prefix}-01`, to: `${prefix}-${String(daysInMonth(year, month)).padStart(2, '0')}` };
+  return monthDateRange(monthOf(today));
 }
 
 // 集計（firebase を使わない。基準日のテストは、この関数を直接呼ぶ）

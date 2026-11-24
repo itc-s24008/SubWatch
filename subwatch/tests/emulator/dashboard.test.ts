@@ -9,17 +9,12 @@ import { GET } from '@/app/api/dashboard/route';
 import { addDays } from '@/lib/billing';
 import { todayJST } from '@/lib/clock';
 import { getDashboard } from '@/lib/dashboard';
-import { adminDb } from '@/lib/firebase-admin';
 import type { SubscriptionDoc } from '@/lib/types';
-import { callRoute, resetEmulators, seedSubscriptions, seedUser, signUpUser, TEST_DATA_SUBSCRIPTIONS } from './helpers';
+import { callRoute, resetEmulators, seedNotificationEvents, seedSubscriptions, seedUser, signUpUser, TEST_DATA_SUBSCRIPTIONS } from './helpers';
 
+// 通知イベントの置き方は 04-14 の seedNotificationEvents（11/25 のα版の統合で、自分で set していたものからそろえた。数える条件の createdAt・viewedAt は同じ値）
 async function seedNotification(uid: string, id: string, createdAt: Date, viewedAt: Date | null): Promise<void> {
-  await adminDb()
-    .collection('users')
-    .doc(uid)
-    .collection('notificationEvents')
-    .doc(id)
-    .set({ notificationId: id, uid, createdAt: Timestamp.fromDate(createdAt), viewedAt: viewedAt ? Timestamp.fromDate(viewedAt) : null });
+  await seedNotificationEvents(uid, [{ notificationId: id, createdAt: Timestamp.fromDate(createdAt), viewedAt: viewedAt ? Timestamp.fromDate(viewedAt) : null }]);
 }
 
 async function callDashboard(token?: string) {

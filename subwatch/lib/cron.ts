@@ -3,7 +3,7 @@
 //   verifyCronSecret(req)：Authorization: Bearer CRON_SECRET を確かめる（違えば 401 INVALID_CRON_SECRET）
 //   resolveRunDate(req, now?)：runDate（日本時間の今日。ALLOW_CRON_RUNDATE_OVERRIDE が 'true' のときだけ ?runDate を使う）
 //   runDailyCron(options)：cronRuns の確認 → refresh_stale → candidates → events → push → cleanup → 記録。CronResult を返す
-//   noopPushSender：11/25 の統合までの仮の PushSender（何も送らず、何も保存せずに skipped を返す）
+//   noopPushSender：仮の PushSender（何も送らず、何も保存せずに skipped を返す）。11/25 の統合で route は pushSender に替えた。Web Push の送信を外すときに戻す先
 //
 // Cron と PushSender の分担（lib/types.ts の PushSender。詳細_F-06 の 8-6）：
 //   Cron は、送る通知イベントを選ぶ・締切を確かめる（利用者ごとの前と、通知イベント1件の送信の前）・PushSender を呼ぶ・
@@ -20,7 +20,7 @@ import {
 } from 'firebase-admin/firestore';
 import { addDays, isValidDate, nextBillingDate } from '@/lib/billing';
 import { todayJST } from '@/lib/clock';
-import { ERROR_MESSAGES, HttpError, fromFirestoreError } from '@/lib/errors';
+import { ERROR_MESSAGES, HttpError, fromFirestoreError, isFirestoreNotFound } from '@/lib/errors';
 import { adminDb } from '@/lib/firebase-admin';
 import { notificationId, planNotifications } from '@/lib/notifications';
 import type {
@@ -76,7 +76,8 @@ export function resolveRunDate(req: Request, now: Date = new Date(), allowOverri
 }
 
 // ---- 仮の PushSender ----
-// 11/25 の統合までは、route がこれを渡す。統合で、04-15 の lib/push.ts が export する pushSender に差し替える（route の1か所）
+// 11/25 の統合までは、route がこれを渡していた。統合で、04-15 の lib/push.ts が export する pushSender に差し替えた（route の1か所）。
+// Web Push の送信を外すときは、route をこれに戻す（統合の指示書の 12/1・手順書 05）
 export const noopPushSender: PushSender = async (_uid, event) => ({
   status: 'skipped',
   deliveredIds: [...event.webPushDeliveredIds],
@@ -125,7 +126,7 @@ export async function runCleanupLoop(
 
 export interface RunDailyCronOptions {
   runDate: DateString; // 日本時間の今日（route が resolveRunDate で決める）
-  pushSender: PushSender; // Push の送信（テストでは偽物を渡す。統合までは noopPushSender）
+  pushSender: PushSender; // Push の送信（テストでは偽物を渡す。route は lib/push.ts の pushSender。11/25 の統合までは noopPushSender）
   db?: Firestore; // テスト用の差し替え口
   now?: () => Date; // 現在時刻（startedAt・createdAt・cleanup の基準・締切の判定。テスト用の差し替え口）
   deadlineAt?: number; // 締切の時刻（ミリ秒）。省略すると、始めた時刻＋240秒（テスト用の差し替え口。partial の試験用）
@@ -185,9 +186,10 @@ function grpcCode(error: unknown): number | string | undefined {
 }
 
 // 更新の途中で消えた（5 NOT_FOUND）・その間に編集された（9 FAILED_PRECONDITION）。refresh_stale では無視する（決まりの一覧 C-8）
+// NOT_FOUND の判定は lib/errors.ts の isFirestoreNotFound（CLAUDE.md「統合日にそろえる名前」。11/25 のα版の統合でそろえた。判定は同じ）
 function isIgnorableUpdateError(error: unknown): boolean {
   const code = grpcCode(error);
-  return code === 5 || code === 'not-found' || code === 9 || code === 'failed-precondition';
+  return isFirestoreNotFound(error) || code === 9 || code === 'failed-precondition';
 }
 
 function isAlreadyExists(error: unknown): boolean {

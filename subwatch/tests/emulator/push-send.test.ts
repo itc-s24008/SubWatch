@@ -6,35 +6,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { adminDb } from '@/lib/firebase-admin';
 import { createPushSender, type WebPushSend } from '@/lib/push';
 import type { NotificationEvent, NotificationEventDoc } from '@/lib/types';
-import { resetEmulators, seedPushSubscription, seedUser } from './helpers';
+import { resetEmulators, seedNotificationEvents, seedPushSubscription, seedUser } from './helpers';
 
 const NOW = new Date('2026-11-24T00:01:00.000Z');
 const CREATED = Timestamp.fromDate(new Date('2026-11-24T00:00:30.000Z'));
 
-// 通知イベントを Firestore に直接置く（このテストの中だけの仮の道具。11/25 の統合で 04-14 の seedNotificationEvents にそろえる）
+// 通知イベントを Firestore に直接置き、PushSender に渡す形（NotificationEvent）で返す。
+// 置き方は 04-14 の seedNotificationEvents（tests/emulator/helpers.ts）。11/25 のα版の統合で、このファイルの中の仮の道具からそろえた。
+// このファイルの値（サービス名・請求日・作成日時）は、前の仮の道具と同じものを渡す（notificationId は決定的ID になる）
 async function seedEvent(uid: string, fields: Partial<NotificationEventDoc> = {}): Promise<NotificationEvent> {
-  const doc: NotificationEventDoc = {
-    notificationId: 'e'.repeat(64),
-    uid,
-    subscriptionId: 'a'.repeat(20),
-    serviceNameAtNotification: 'Spotify',
-    notificationType: 'billing',
-    daysBefore: 1,
-    targetDate: '2026-11-24',
-    title: '請求日まであと1日',
-    body: '11/25・¥980 の請求予定',
-    priceAtNotification: 980,
-    viewedAt: null,
-    webPushStatus: 'pending',
-    webPushDeliveredIds: [],
-    webPushSentAt: null,
-    webPushLastErrorCode: null,
-    expireAt: Timestamp.fromMillis(CREATED.toMillis() + 90 * 24 * 60 * 60 * 1000),
-    createdAt: CREATED,
-    updatedAt: CREATED,
-    ...fields,
-  };
-  await eventRef(uid, doc.notificationId).set(doc);
+  const [doc] = await seedNotificationEvents(uid, [
+    {
+      serviceNameAtNotification: 'Spotify',
+      targetDate: '2026-11-24',
+      body: '11/25・¥980 の請求予定',
+      createdAt: CREATED,
+      ...fields,
+    },
+  ]);
   const { viewedAt: _v, webPushSentAt: _s, webPushLastErrorCode: _l, expireAt: _e, createdAt: _c, updatedAt: _u, ...event } = doc;
   return event;
 }
