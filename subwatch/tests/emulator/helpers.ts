@@ -183,3 +183,54 @@ export async function seedPushSubscription(
 }
 
 // ===== 04-14：seedNotificationEvents・cronAuthHeaders ここに足す =====
+import type { NotificationEventDoc } from '@/lib/types';
+import { notificationId } from '@/lib/notifications';
+
+// 通知イベントを Firestore に直接置く（Cron を通さない。users は作らない）。書かなかった項目は既定の値
+// （subscriptionId は 'a' を20個・billing・1日前・targetDate 2026-11-04・title／body はその文面・料金 980・未読・pending・送信済みの端末なし）。
+// notificationId を書かなければ、決定的ID（lib/notifications.ts）にする。createdAt は今から渡した順に1ミリ秒ずつ進め、
+// expireAt は createdAt の90日後、updatedAt は createdAt と同じ（どれも渡せば上書き）。置いたドキュメントを、渡した順で返す
+export async function seedNotificationEvents(uid: string, items: Partial<NotificationEventDoc>[]): Promise<NotificationEventDoc[]> {
+  const collection = adminDb().collection('users').doc(uid).collection('notificationEvents');
+  const base = Date.now();
+  const docs: NotificationEventDoc[] = [];
+  const batch = adminDb().batch();
+  items.forEach((item, index) => {
+    const createdAt = item.createdAt ?? Timestamp.fromMillis(base + index);
+    const fields = {
+      subscriptionId: 'a'.repeat(20),
+      notificationType: 'billing' as const,
+      daysBefore: 1 as const,
+      targetDate: '2026-11-04',
+      ...item,
+    };
+    const id = item.notificationId ?? notificationId(uid, fields.subscriptionId, fields.notificationType, fields.daysBefore, fields.targetDate);
+    const doc: NotificationEventDoc = {
+      notificationId: id,
+      uid,
+      serviceNameAtNotification: 'テストのサブスク',
+      title: '請求日まであと1日',
+      body: '11/05・¥980 の請求予定',
+      priceAtNotification: 980,
+      webPushStatus: 'pending',
+      webPushDeliveredIds: [],
+      viewedAt: null,
+      webPushSentAt: null,
+      webPushLastErrorCode: null,
+      expireAt: Timestamp.fromMillis(createdAt.toMillis() + 90 * 24 * 60 * 60 * 1000),
+      updatedAt: createdAt,
+      ...fields,
+      createdAt,
+    };
+    doc.notificationId = id;
+    batch.set(collection.doc(id), doc);
+    docs.push(doc);
+  });
+  await batch.commit();
+  return docs;
+}
+
+// Cron（GET /api/cron/daily）を呼ぶときのヘッダー（.env.development.local のダミーの CRON_SECRET）
+export function cronAuthHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` };
+}
