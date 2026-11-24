@@ -61,7 +61,7 @@ test.describe('S-04 検索・カテゴリー・並べ替え（No.58）', () => {
     expect(list.calls()).toBe(1);
   });
 
-  test('No.58 検索の0件は「条件に合うサブスクはありません」。全角の英字は半角と同じにしない', async ({ page }) => {
+  test('No.58 検索の0件は「条件に合うサブスクはありません」。全角の英字も半角と同じに探せる（決まりの一覧 C-17）', async ({ page }) => {
     await openList(page);
     await searchBox(page).fill('Hulu');
     await expect(page.getByRole('main').getByText('条件に合うサブスクはありません')).toBeVisible();
@@ -70,7 +70,7 @@ test.describe('S-04 検索・カテゴリー・並べ替え（No.58）', () => {
     await expect(page.getByRole('link', { name: '＋ サブスクを追加' })).toBeVisible();
 
     await searchBox(page).fill('ｎｅｔｆｌｉｘ');
-    await expect(page.getByRole('main').getByText('条件に合うサブスクはありません')).toBeVisible();
+    await expect(cardNames(page)).toHaveText(['Netflix']);
 
     await searchBox(page).fill('net');
     await expect(cardNames(page)).toHaveText(['Netflix']);

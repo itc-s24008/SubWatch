@@ -33,7 +33,16 @@ describe('部品', () => {
   it('duplicateKey：前後の空白（全角を含む）を除き、英字だけを小文字にする', () => {
     expect(duplicateKey(' Netflix　')).toBe('netflix');
     expect(duplicateKey('netflix')).toBe(duplicateKey('Netflix '));
-    expect(duplicateKey('ＮＥＴＦＬＩＸ')).toBe('ＮＥＴＦＬＩＸ'); // 全角英字は正規化しない
+  });
+
+  it('duplicateKey：全角と半角をそろえる（決まりの一覧 C-17）', () => {
+    expect(duplicateKey('ＮＥＴＦＬＩＸ')).toBe('netflix');
+    expect(duplicateKey('ｎｅｔｆｌｉｘ')).toBe('netflix');
+    expect(duplicateKey('　Ｎｅｔｆｌｉｘ　')).toBe(duplicateKey('Netflix'));
+    expect(duplicateKey('Ｕ－ＮＥＸＴ')).toBe(duplicateKey('U-NEXT'));
+    expect(duplicateKey('ＤＡＺＮ２')).toBe('dazn2');
+    expect(duplicateKey('ﾈｯﾄﾌﾘｯｸｽ')).toBe(duplicateKey('ネットフリックス'));
+    expect(duplicateKey('Net flix')).not.toBe(duplicateKey('Netflix')); // 途中の空白は残す
   });
 
   it('isSubscriptionId：英数字20文字', () => {

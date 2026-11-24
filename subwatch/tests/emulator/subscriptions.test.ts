@@ -103,6 +103,29 @@ describe('POST /api/subscriptions（保存）', () => {
     expect(await subscriptionCount(user.uid)).toBe(2);
   });
 
+  it('No.11 全角と半角も同じ名前として警告する（決まりの一覧 C-17）。保存する名前は入力のまま', async () => {
+    const user = await newUser();
+    const [netflix] = await seedSubscriptions(user.uid, [{ serviceName: 'Netflix' }]);
+    for (const name of ['ＮＥＴＦＬＩＸ', '　ｎｅｔｆｌｉｘ　']) {
+      const res = await callRoute(POST, { method: 'POST', token: user.token, body: { ...BASE, serviceName: name } });
+      expect(res.status).toBe(409);
+      expect(res.body?.error).toMatchObject({
+        code: 'DUPLICATE_CANDIDATE',
+        message: `『${name.trim()}』はすでに登録されています。別の契約として登録しますか？`,
+        candidates: [{ subscriptionId: netflix.subscriptionId, serviceName: 'Netflix' }],
+      });
+    }
+    // 全角で登録済みのものに、半角で登録しようとしても警告する
+    const other = await newUser();
+    const [wide] = await seedSubscriptions(other.uid, [{ serviceName: 'ＤＡＺＮ' }]);
+    const res = await callRoute(POST, { method: 'POST', token: other.token, body: { ...BASE, serviceName: 'dazn' } });
+    expect(res.status).toBe(409);
+    expect(res.body?.error).toMatchObject({ code: 'DUPLICATE_CANDIDATE', candidates: [{ subscriptionId: wide.subscriptionId, serviceName: 'ＤＡＺＮ' }] });
+    const ok = await callRoute(POST, { method: 'POST', token: other.token, body: { ...BASE, serviceName: 'dazn', confirmDuplicate: true } });
+    expect(ok.status).toBe(201);
+    expect(ok.body?.data.subscription.serviceName).toBe('dazn');
+  });
+
   it('同じ POST が同時に2件届くと、201 が1件、もう1件は同名の 409', async () => {
     const user = await newUser();
     const results = await Promise.all([

@@ -3,7 +3,8 @@
 //
 //   hasCardLikeNumber(s)：カード番号様の数字（半角数字13桁以上。数字の間に半角空白・全角空白・半角ハイフンが1つまで）を含むか
 //   hasHttpScheme(s)：http:// か https:// で始まるか（URL としての解釈はしない。保存の検証、S-05 の入力、S-06 のリンクで同じものを使う）
-//   duplicateKey(name)：同名の判定と S-04 の検索に使う形（前後の空白〔全角を含む〕を除き、英字 A-Z だけを小文字にする）
+//   duplicateKey(name)：同名の判定と S-04 の検索に使う形（全角・半角をそろえ〔Unicode の NFKC。全角英数字は半角に、半角カナは全角に〕、
+//     前後の空白〔全角を含む〕を除き、英字 A-Z を小文字にする。決まりの一覧 C-17）
 //   isSubscriptionId(s)：Firestore の自動 ID（英数字20文字）の形か
 //   validateSubscriptionFields(body, mode)：項目ごとの検証（誤りを全部集める。1項目1件。型 → 長さ → カード番号様の順）
 //   validateSubscriptionCrossFields(values)：項目の間の検証（項目ごとの誤りが無いときだけ呼ぶ）
@@ -21,7 +22,7 @@ export function hasHttpScheme(s: string): boolean {
 }
 
 export function duplicateKey(name: string): string {
-  return name.trim().replace(/[A-Z]/g, (c) => c.toLowerCase());
+  return name.normalize('NFKC').trim().replace(/[A-Z]/g, (c) => c.toLowerCase());
 }
 
 export function isSubscriptionId(s: unknown): s is string {
