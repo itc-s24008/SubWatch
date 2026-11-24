@@ -3,10 +3,11 @@
 
 // ===== 04-09：ホームの集計（GET /api/dashboard。詳細_F-04、API共通仕様 B75・B76・B78・B79、共通ロジック） =====
 import { Timestamp, type Firestore } from 'firebase-admin/firestore';
-import { addDays, annualAmount, billingDatesInRange, daysBetween, daysInMonth, monthlyEquivalentTotal, nextBillingDate, weekdayOf } from '@/lib/billing';
+import { addDays, annualAmount, billingDatesInRange, daysBetween, monthlyEquivalentTotal, nextBillingDate, weekdayOf } from '@/lib/billing';
 import { adminDb } from '@/lib/firebase-admin';
 import { listSubscriptions } from '@/lib/subscriptions';
 import type { BillingCycle, BillingDayMode, DashboardDto, DateString, SubscriptionDoc } from '@/lib/types';
+import { monthOf } from '@/lib/calendar'; // 11/25 のα版の統合で足した（monthRange を monthDateRange にそろえるため。monthDateRange は 04-13 の見出しの下で import 済み）
 
 // 集計に使うサブスクの形（保存の形 SubscriptionDoc から、集計に要る項目だけを取り出したもの）。
 // 保存された値が壊れていることがあるので、price・billingCycle などは確かめずにそのまま入れる（集計の中で RangeError になったら外す）
@@ -45,12 +46,9 @@ export function weekRange(today: DateString): { from: DateString; to: DateString
   return { from, to: addDays(from, 6) };
 }
 
-// 今月（1日〜末日）
+// 今月（1日〜末日）。月の範囲は lib/calendar.ts の monthDateRange だけで求める（11/25 のα版の統合で、同じ計算を自分で書いていたのをそろえた。名前と値は同じ）
 export function monthRange(today: DateString): { from: DateString; to: DateString } {
-  const year = Number(today.slice(0, 4));
-  const month = Number(today.slice(5, 7));
-  const prefix = today.slice(0, 7);
-  return { from: `${prefix}-01`, to: `${prefix}-${String(daysInMonth(year, month)).padStart(2, '0')}` };
+  return monthDateRange(monthOf(today));
 }
 
 // 集計（firebase を使わない。基準日のテストは、この関数を直接呼ぶ）
@@ -146,3 +144,53 @@ export async function getDashboard(uid: string, options: DashboardOptions): Prom
 }
 
 // ===== 04-13：カレンダーの集計 ここに足す =====
+// GET /api/calendar?month=YYYY-MM（API一覧 No.11、詳細_F-05、API共通仕様 B77）。04-09 の行は変えず、関数を足しただけ
+// 月の範囲（1日〜末日）は lib/calendar.ts の monthDateRange で求める（04-09 の monthRange は使わない）
+import { monthDateRange } from '@/lib/calendar';
+import type { CalendarDto } from '@/lib/types';
+
+// 月の集計（firebase を使わない。基準日のテストは、この関数を直接呼ぶ）
+//   subscriptions は作成日時の昇順で渡す（同じ日の items は、この順のまま）
+//   各サブスクの請求日は firstBillingDate と周期・請求日方式から計算する（保存された nextBillingDate には頼らない）
+//   請求日・周期・請求日方式・料金が壊れていて計算できない（lib/billing.ts が RangeError を投げる）サブスクは、
+//   500 にせず集計から外す（GET /api/dashboard の computeDashboard と同じ基準：annualAmount と billingDatesInRange が通るもの）
+//   days は請求のある日だけを日付の昇順。monthTotalJPY は、その月の請求の料金の合計
+export function computeCalendar(subscriptions: DashboardSubscription[], month: string): CalendarDto {
+  const { from, to } = monthDateRange(month); // 壊れた月は RangeError（route が先に検査するので、ふつうは来ない）
+  const byDate = new Map<DateString, CalendarDto['days'][number]['items']>();
+  let monthTotalJPY = 0;
+
+  for (const sub of subscriptions) {
+    let dates: DateString[];
+    try {
+      annualAmount(sub.price, sub.billingCycle); // 料金・周期が壊れていれば RangeError（ホームと同じ基準で外す）
+      dates = billingDatesInRange(sub.firstBillingDate, sub.billingCycle, sub.billingDayMode, from, to);
+    } catch (error) {
+      if (error instanceof RangeError) continue;
+      throw error;
+    }
+    for (const date of dates) {
+      const items = byDate.get(date) ?? [];
+      items.push({ subscriptionId: sub.subscriptionId, serviceName: sub.serviceName, priceJPY: sub.price });
+      byDate.set(date, items);
+      monthTotalJPY += sub.price;
+    }
+  }
+
+  const days = [...byDate.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, items]) => ({ date, items }));
+  return { month, days, monthTotalJPY };
+}
+
+export interface CalendarOptions {
+  month: string; // YYYY-MM（route が検査し、省略なら日本時間の今月を渡す）
+  db?: Firestore; // テスト用の差し替え口
+}
+
+// GET /api/calendar の中身（users と規約の版の確認は route が requireInitialized で行う）
+// サブスクの読み取りは 04-07 の listSubscriptions（作成日時の昇順）、集計の形は 04-09 の toDashboardSubscription
+export async function getCalendar(uid: string, options: CalendarOptions): Promise<CalendarDto> {
+  const docs = await listSubscriptions(uid, options.db ?? adminDb());
+  return computeCalendar(docs.map(toDashboardSubscription), options.month);
+}

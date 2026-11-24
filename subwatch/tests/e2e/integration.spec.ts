@@ -1,5 +1,5 @@
 // 統合の通しのテスト（統合日の共通 手順6）。mockApi も仮データ（NEXT_PUBLIC_USE_MOCKS）も使わず、本物の API と Emulator で動かす。
-// 前の統合日のテストは消さずに残し、次の統合日（11/25・12/1）は、このファイルに足す
+// 前の統合日のテストは消さずに残し、次の統合日（11/25・12/1）は、このファイルに足す（11/25 の分は、このファイルの最後）
 //
 // ===== 統合①（11/19）：登録 → 一覧 → 編集 → 削除（04-05・04-06・04-07・04-08・04-09 のつなぎ） =====
 import { expect, test, type Page } from '@playwright/test';
@@ -227,4 +227,95 @@ test('統合① 本物の API の 404：無い ID・他人の ID の S-06 は「
   await saveButton(page).click();
   await expect(main(page).getByRole('alert').filter({ hasText: 'サブスクが見つかりません' })).toBeVisible();
   await expect(page).toHaveURL(EDIT_URL);
+});
+
+// ===== α版の統合（11/25）：登録 → Cron（HTTP）→ 通知イベント → S-03 の未読数 → 2回目は noop → S-07（04-13・04-14・04-15 のつなぎ） =====
+// Cron（GET /api/cron/daily）は Emulator の全利用者を見るので、件数は「以上」で確かめ、通知は、この利用者のものだけを見る。
+// route の PushSender は、統合で lib/push.ts の pushSender（本物の送信）に替えた。購読の無い利用者の通知イベントは skipped が保存される
+// （仮の noopPushSender は何も保存しないので pending のまま。ここで、差し替えが効いていることを確かめる）
+import { dayLabel, monthOf } from '../../lib/calendar';
+import { cronAuthHeaders } from '../emulator/helpers';
+
+test('α版の統合 本物の API で、S-05 の登録 → Cron を HTTP で呼ぶ（鍵なしは 401）→ 通知イベント → S-03 の未読1件 → 同じ日の2回目は noop → S-07 に請求が出る', async ({ page }) => {
+  const today = todayJST();
+  const tomorrow = addDays(today, 1); // 請求日が明日なら、今日の Cron で「請求日まであと1日」が作られる
+  const db = adminDb();
+
+  // 今日の cronRuns を消す（同じ日の2回目は noop になるため。ほかのテストや前の実行が先に呼んでいても、ここから数える）
+  await db.collection('cronRuns').doc(today).delete();
+  // 本物の送信に替えたので、ほかのテストが置いた購読（https://push.example.com/… のテスト用の宛先）へ送らないように、Emulator の購読を消しておく
+  const pushSubscriptions = await db.collectionGroup('webPushSubscriptions').get();
+  await Promise.all(pushSubscriptions.docs.map((doc) => doc.ref.delete()));
+
+  // ---- S-05 登録（04-06・04-07。本物の POST /api/subscriptions） ----
+  const user = await loginAsNewUser(page);
+  await page.goto('/subscriptions/new');
+  await expect(page.getByRole('heading', { level: 1, name: 'サブスクを追加' })).toBeVisible();
+  await waitForHydration(page, 'form');
+  await fillSubscriptionForm(page, { serviceName: 'α版の通知テスト', price: '1590', billingCycle: 'monthly', firstBillingDate: tomorrow, category: 'video' });
+  await saveButton(page).click();
+  await expect(page).toHaveURL(DETAIL_URL); // /subscriptions/new は拾わない
+  const subscriptionId = new URL(page.url()).pathname.split('/').pop()!;
+
+  // ---- Cron（04-14。本物の GET /api/cron/daily）：鍵なしは 401 ----
+  const unauthorized = await page.request.get('/api/cron/daily');
+  expect(unauthorized.status()).toBe(401);
+  expect((await unauthorized.json()).error.code).toBe('INVALID_CRON_SECRET');
+  expect((await db.collection('cronRuns').doc(today).get()).exists).toBe(false); // 401 では何も書かない
+
+  // ---- 1回目：通知イベントが作られる ----
+  const first = await page.request.get('/api/cron/daily', { headers: cronAuthHeaders() });
+  expect(first.status()).toBe(200);
+  const firstData = (await first.json()).data;
+  expect(firstData.status).toBe('completed');
+  expect(firstData.createdCount).toBeGreaterThanOrEqual(1);
+  expect((await db.collection('cronRuns').doc(today).get()).get('status')).toBe('completed');
+
+  const events = await db.collection('users').doc(user.uid).collection('notificationEvents').get();
+  expect(events.size).toBe(1);
+  expect(events.docs[0].data()).toMatchObject({
+    uid: user.uid,
+    subscriptionId,
+    serviceNameAtNotification: 'α版の通知テスト',
+    notificationType: 'billing',
+    daysBefore: 1,
+    targetDate: today,
+    title: '請求日まであと1日',
+    body: `${monthDay(tomorrow)}・¥1,590 の請求予定`,
+    priceAtNotification: 1590,
+    viewedAt: null,
+    webPushStatus: 'skipped', // 04-15 の pushSender が保存した（この利用者には購読が無い）
+    webPushDeliveredIds: [],
+    webPushSentAt: null,
+    webPushLastErrorCode: null,
+  });
+
+  // ---- S-03 ホーム（04-09。本物の GET /api/dashboard）：未読1件 ----
+  await page.getByRole('navigation', { name: 'メニュー' }).getByRole('link', { name: 'ホーム' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'ホーム' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '通知センター（未読1件）' })).toBeVisible();
+  await expect(main(page).getByText('次の請求まであと1日')).toBeVisible();
+
+  // ---- 同じ日の2回目は noop（通知イベントは増えない） ----
+  const second = await page.request.get('/api/cron/daily', { headers: cronAuthHeaders() });
+  expect(second.status()).toBe(200);
+  expect((await second.json()).data).toEqual({ status: 'noop', createdCount: 0, sentCount: 0, failedCount: 0 });
+  expect((await db.collection('users').doc(user.uid).collection('notificationEvents').get()).size).toBe(1);
+  await page.reload();
+  await expect(page.getByRole('link', { name: '通知センター（未読1件）' })).toBeVisible();
+
+  // ---- S-07 請求カレンダー（04-13。本物の GET /api/calendar）：明日に請求が出る ----
+  await page.getByRole('navigation', { name: 'メニュー' }).getByRole('link', { name: 'カレンダー' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: '請求カレンダー' })).toBeVisible();
+  if (monthOf(tomorrow) !== monthOf(today)) await main(page).getByRole('button', { name: '翌月' }).click(); // 今日が月末なら翌月へ
+  const day = main(page).getByRole('button', { name: `${dayLabel(tomorrow)} 請求予定1件` });
+  await expect(day).toBeVisible();
+  await day.click();
+  await expect(main(page).getByRole('heading', { level: 2, name: `${dayLabel(tomorrow)}の予定` })).toBeVisible();
+  const items = main(page).getByRole('list', { name: `${dayLabel(tomorrow)}の請求予定` }).getByRole('listitem');
+  await expect(items).toHaveCount(1);
+  await expect(items.first()).toContainText('α版の通知テスト');
+  await expect(items.first()).toContainText('請求予定・¥1,590');
+  await items.first().getByRole('link').click();
+  await expect(page).toHaveURL(new RegExp(`/subscriptions/${subscriptionId}$`));
 });
