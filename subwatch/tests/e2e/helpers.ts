@@ -201,5 +201,62 @@ export async function expectTapTargets(page: Page): Promise<void> {
 // ===== 04-05：認証の画面テストの道具 ここに足す =====
 
 // ===== 04-06：S-05 の画面テストの道具 ここに足す =====
+import type { SubscriptionDto } from '../../lib/types';
+
+// mockApi の応答に使うサブスク1件（書かなかった項目は、テストデータの Netflix の値。ID は英数字20文字）
+export function subscriptionDto(fields: Partial<SubscriptionDto> = {}): SubscriptionDto {
+  return {
+    subscriptionId: 'testSubscription0001',
+    serviceName: 'Netflix',
+    planName: 'スタンダード',
+    price: 1590,
+    billingCycle: 'monthly',
+    firstBillingDate: '2026-10-08',
+    nextBillingDate: '2026-11-08',
+    billingDayMode: 'fixedDay',
+    category: 'video',
+    trialEnabled: false,
+    trialEndDate: null,
+    websiteUrl: 'https://www.netflix.com',
+    cancelUrl: null,
+    paymentMethod: 'メインカード',
+    memo: null,
+    subscriptionNotificationEnabled: true,
+    createdAt: '2026-11-04T00:00:00.000Z',
+    updatedAt: '2026-11-04T00:00:00.000Z',
+    ...fields,
+  };
+}
+
+// S-05 のフォームに入力する（渡した項目だけ。文字の欄は fill、選択欄は selectOption）
+export interface SubscriptionFormInput {
+  serviceName?: string;
+  planName?: string;
+  price?: string;
+  billingCycle?: string; // monthly など
+  firstBillingDate?: string; // YYYY-MM-DD
+  category?: string; // video など
+  websiteUrl?: string;
+  cancelUrl?: string;
+  paymentMethod?: string;
+  memo?: string;
+}
+
+export async function fillSubscriptionForm(page: Page, input: SubscriptionFormInput): Promise<void> {
+  // 欄は名前（ラベル。必須の印「*」は読み上げない）で探す
+  const main = page.getByRole('main');
+  const textbox = (name: string) => main.getByRole('textbox', { name, exact: true });
+  const combobox = (name: string) => main.getByRole('combobox', { name, exact: true });
+  if (input.serviceName !== undefined) await textbox('サービス名').fill(input.serviceName);
+  if (input.planName !== undefined) await textbox('プラン名').fill(input.planName);
+  if (input.price !== undefined) await textbox('1回の請求額（円）').fill(input.price);
+  if (input.billingCycle !== undefined) await combobox('請求周期').selectOption(input.billingCycle);
+  if (input.firstBillingDate !== undefined) await textbox('請求日（過去に請求された日、または次の請求日）').fill(input.firstBillingDate);
+  if (input.category !== undefined) await combobox('カテゴリー').selectOption(input.category);
+  if (input.websiteUrl !== undefined) await textbox('公式サイトURL（任意）').fill(input.websiteUrl);
+  if (input.cancelUrl !== undefined) await textbox('解約URL（任意）').fill(input.cancelUrl);
+  if (input.paymentMethod !== undefined) await textbox('支払方法の表示名（任意）').fill(input.paymentMethod);
+  if (input.memo !== undefined) await textbox('メモ（任意・最大1000文字）').fill(input.memo);
+}
 
 // ===== 05-07：mockFavicon ここに足す =====
