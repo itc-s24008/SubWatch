@@ -7,9 +7,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DELETE } from '@/app/api/account/route';
 import { deleteAccount, deleteAuthUser, deleteUserTree } from '@/lib/account-delete';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
-import { callRoute, resetEmulators, seedSubscriptions, seedUser, signUpUser } from './helpers';
+import { callRoute, resetEmulators, seedSubscriptions, seedUser, signInWithGoogleEmulator, signUpUser } from './helpers';
 
-const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
 
 function callDelete(token: string | undefined, body: unknown = { confirmation: 'DELETE' }) {
   return callRoute(DELETE, { method: 'DELETE', token, body, path: '/api/account' });
@@ -46,24 +45,12 @@ async function authExists(uid: string): Promise<boolean> {
   }
 }
 
-// 同じメールで登録し直す（Auth Emulator）
-async function signUpWithEmail(email: string, password: string): Promise<{ ok: boolean; uid?: string }> {
-  const res = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: true }),
-  });
-  if (!res.ok) return { ok: false };
-  const json = (await res.json()) as { localId: string };
-  return { ok: true, uid: json.localId };
-}
-
 beforeEach(async () => {
   await resetEmulators();
 });
 
 describe('DELETE /api/account', () => {
-  it('No.36 再認証が5分以内なら削除でき、uid 配下のデータと Auth が消え、同じメールで再登録できる', async () => {
+  it('No.36 再認証が5分以内なら削除でき、uid 配下のデータと Auth が消え、同じ Google アカウントで登録し直せる', async () => {
     const user = await signUpUser();
     await seedUser(user.uid, { email: user.email });
     await seedChildren(user.uid);
@@ -77,7 +64,7 @@ describe('DELETE /api/account', () => {
     expect(await remaining(user.uid)).toEqual({ userDoc: false, children: 0 });
     expect(await authExists(user.uid)).toBe(false);
 
-    const again = await signUpWithEmail(user.email, user.password);
+    const again = await signInWithGoogleEmulator(user.email);
     expect(again.ok).toBe(true);
     expect(again.uid).not.toBe(user.uid);
   });

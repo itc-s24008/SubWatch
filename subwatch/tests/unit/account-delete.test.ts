@@ -32,7 +32,7 @@ const NOW = Date.UTC(2026, 10, 25, 3, 0, 0); // ミリ秒
 const NOW_SEC = NOW / 1000;
 
 describe('No.37 再認証から5分より後なら 401 REAUTH_REQUIRED（判定の関数に auth_time と now を渡す）', () => {
-  it('No.37 auth_time が 5分1秒前なら通さず、requireRecentAuth は 401 REAUTH_REQUIRED「もう一度パスワードを入力してください」', () => {
+  it('No.37 auth_time が 5分1秒前なら通さず、requireRecentAuth は 401 REAUTH_REQUIRED「もう一度 Google で本人確認してください」', () => {
     expect(isRecentAuth(NOW_SEC - 301, NOW)).toBe(false);
     let thrown: unknown;
     try {
@@ -41,7 +41,7 @@ describe('No.37 再認証から5分より後なら 401 REAUTH_REQUIRED（判定�
       thrown = error;
     }
     expect(thrown).toBeInstanceOf(HttpError);
-    expect(thrown).toMatchObject({ status: 401, code: 'REAUTH_REQUIRED', message: 'もう一度パスワードを入力してください' });
+    expect(thrown).toMatchObject({ status: 401, code: 'REAUTH_REQUIRED', message: 'もう一度 Google で本人確認してください' });
   });
 
   it('No.37 1時間前でも 401 REAUTH_REQUIRED', () => {
@@ -198,11 +198,13 @@ describe('画面の判定（lib/account-delete-flow.ts）', () => {
     expect(DELETE_TIMEOUT_MS).toBe(30_000);
   });
 
-  it('パスワード違いとして扱う Firebase の code（それ以外の再認証の失敗は削除の失敗と同じ表示）', () => {
-    for (const code of ['auth/wrong-password', 'auth/invalid-credential', 'auth/invalid-login-credentials', 'auth/missing-password']) {
-      expect(reauthFailureOf({ code })).toBe('wrongPassword');
+  it('Google の本人確認の失敗の分け方（閉じた・違うアカウント・止められた。それ以外は削除の失敗と同じ表示。C-19）', () => {
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled']) {
+      expect(reauthFailureOf({ code })).toBe('cancelled');
     }
-    for (const error of [{ code: 'auth/too-many-requests' }, { code: 'auth/network-request-failed' }, new Error('x'), null]) {
+    expect(reauthFailureOf({ code: 'auth/user-mismatch' })).toBe('userMismatch');
+    expect(reauthFailureOf({ code: 'auth/popup-blocked' })).toBe('popupBlocked');
+    for (const error of [{ code: 'auth/too-many-requests' }, { code: 'auth/network-request-failed' }, { code: 'auth/user-disabled' }, new Error('x'), null]) {
       expect(reauthFailureOf(error)).toBe('failed');
     }
   });
@@ -213,7 +215,7 @@ describe('画面の判定（lib/account-delete-flow.ts）', () => {
     }
   });
 
-  it('401 REAUTH_REQUIRED はパスワードの再入力、401 UNAUTHENTICATED はゲート、そのほかの応答が届いた失敗（500・503 など）は「削除できませんでした…」', () => {
+  it('401 REAUTH_REQUIRED はもう一度本人確認、401 UNAUTHENTICATED はゲート、そのほかの応答が届いた失敗（500・503 など）は「削除できませんでした…」', () => {
     expect(deleteFailureOf(new ApiClientError(401, 'REAUTH_REQUIRED', 'x'))).toBe('reauthRequired');
     expect(deleteFailureOf(new ApiClientError(401, 'UNAUTHENTICATED', 'x'))).toBe('gate');
     expect(deleteFailureOf(new ApiClientError(500, 'DELETE_FAILED', 'x'))).toBe('failed');
@@ -234,7 +236,7 @@ describe('画面の判定（lib/account-delete-flow.ts）', () => {
     expect(DELETE_MESSAGES.done).toBe('アカウントを削除しました。ご利用ありがとうございました');
     expect(DELETE_MESSAGES.failed).toBe('削除できませんでした。もう一度お試しください');
     expect(DELETE_MESSAGES.noResponse).toBe(
-      '削除が完了したか確認できませんでした。もう一度ログインしてください（パスワードを確かめてもログインできなければ、削除は完了しています）',
+      '削除が完了したか確認できませんでした。もう一度ログインしてください（ログインして利用規約への同意を求められたら、削除は完了しています）',
     );
     expect(DELETE_MESSAGES.offline).toBe('オフラインです。接続を確認してください');
   });

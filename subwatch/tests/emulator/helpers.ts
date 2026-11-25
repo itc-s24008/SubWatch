@@ -10,19 +10,32 @@ const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 
 let counter = 0;
 
-// Auth Emulator にユーザーを作る。→ { uid, email, password, token }（token は ID token）
-export async function signUpUser(): Promise<{ uid: string; email: string; password: string; token: string }> {
-  counter += 1;
-  const email = `user${Date.now()}${counter}@example.com`;
-  const password = 'password1234';
-  const res = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
+// Auth Emulator に Google のアカウントでログインする（無ければ作る）。→ { uid, token }（token は ID token。sign_in_provider は google.com）
+// ログインは Google だけ（決まりの一覧 C-19）。Emulator は署名なしの Google の ID token（JSON）を受け付ける。sub は email と同じにする
+// （画面のテストの window.__SUBWATCH_E2E__.signIn(email) も同じ sub でログインするので、同じ uid になる）
+export async function signInWithGoogleEmulator(email: string): Promise<{ ok: boolean; uid: string; token: string }> {
+  const idToken = JSON.stringify({ sub: email, email, email_verified: true });
+  const res = await fetch(`http://${AUTH_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password, returnSecureToken: true }),
+    body: JSON.stringify({
+      postBody: `id_token=${encodeURIComponent(idToken)}&providerId=google.com`,
+      requestUri: 'http://localhost',
+      returnSecureToken: true,
+    }),
   });
-  if (!res.ok) throw new Error(`Auth Emulator の signUp に失敗しました（${res.status}）`);
+  if (!res.ok) return { ok: false, uid: '', token: '' };
   const json = (await res.json()) as { localId: string; idToken: string };
-  return { uid: json.localId, email, password, token: json.idToken };
+  return { ok: true, uid: json.localId, token: json.idToken };
+}
+
+// Auth Emulator に新しいユーザー（Google のアカウント）を作る。→ { uid, email, token }
+export async function signUpUser(): Promise<{ uid: string; email: string; token: string }> {
+  counter += 1;
+  const email = `user${Date.now()}${counter}@example.com`;
+  const result = await signInWithGoogleEmulator(email);
+  if (!result.ok) throw new Error('Auth Emulator の signInWithIdp に失敗しました');
+  return { uid: result.uid, email, token: result.token };
 }
 
 // ユーザーを作り、ID token だけを返す

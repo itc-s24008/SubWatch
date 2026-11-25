@@ -26,8 +26,8 @@
 - ブラウザから Firestore を読み書きしない（`firebase/firestore` を入れない。Rules は全拒否）。データは `app/api/**/route.ts` と firebase-admin を通す。ブラウザの firebase は Auth だけ。
 - コレクションは users・subscriptions・notificationEvents・webPushSubscriptions・cronRuns の5つだけ。
 - エラー形式、検査の順序、HTTP ステータスは「API共通仕様」のとおり。他人のデータは 404。
-- 画面の文言は設計書をそのまま使う。幅375pxで横スクロールなし。ボタンとリンクは44px以上（押しても画面を移らない「リンク」〔S-02 ③・S-13 ⑧〕は、見た目がリンクの `<button>`）。PC は幅480pxを中央。`<h1>` は、画面のタイトルの1つだけにする（本文の中の題は `<h2>` 以下）。
-- ゲートのエラーは 401 UNAUTHENTICATED・409 TERMS_RECONSENT_REQUIRED・409 ACCOUNT_NOT_INITIALIZED の3つだけ（`isGateError` が true）。このとき、どの画面・部品も失敗の文を出さない（ゲートが画面を切り替える）。`catch` の最初に `if (isGateError(error)) return;` と書く（bootstrap を呼ぶ S-01・S-13 は除く。下の「bootstrap の失敗」）。401 REAUTH_REQUIRED（削除のダイアログでパスワードを入れ直す）・503・ほかの 409（CONFLICT など）は含めない（画面は切り替わらず、その部品が文を出す）。Gates（画面を切り替える部品）は (auth) の画面（S-01・S-02）では判定しない。`onApiGate`（API の結果を受ける口）は S-01・S-02 でもこの3つに反応する。
+- 画面の文言は設計書をそのまま使う。幅375pxで横スクロールなし。ボタンとリンクは44px以上（押しても画面を移らない「リンク」〔S-13 ⑧〕は、見た目がリンクの `<button>`）。PC は幅480pxを中央。`<h1>` は、画面のタイトルの1つだけにする（本文の中の題は `<h2>` 以下）。
+- ゲートのエラーは 401 UNAUTHENTICATED・409 TERMS_RECONSENT_REQUIRED・409 ACCOUNT_NOT_INITIALIZED の3つだけ（`isGateError` が true）。このとき、どの画面・部品も失敗の文を出さない（ゲートが画面を切り替える）。`catch` の最初に `if (isGateError(error)) return;` と書く（bootstrap を呼ぶ S-01・S-13 は除く。下の「bootstrap の失敗」）。401 REAUTH_REQUIRED（削除のダイアログで Google の本人確認をやり直す）・503・ほかの 409（CONFLICT など）は含めない（画面は切り替わらず、その部品が文を出す）。Gates（画面を切り替える部品）は (auth) の画面（S-01・S-02）では判定しない。`onApiGate`（API の結果を受ける口）は S-01・S-02 でもこの3つに反応する。
 - S-09 のスイッチ（③通知・④この端末で受け取る）の保存が失敗したら、スイッチを元へ戻す。`isGateError` のときは文を出さない。それ以外の失敗は、画面設計書 S-09 の文を出す（③「変更できませんでした…」、④はオンにするとき「登録できませんでした…」、オフにするとき「解除できませんでした…」）。④のオフは、先に DELETE /api/push/subscribe を呼び、成功してからブラウザの購読を解除する（失敗したら購読を残してオンのまま「解除できませんでした…」）。
 - bootstrap の失敗（POST /api/account/bootstrap。S-01 と S-13）は、次の表のとおり。
 
@@ -38,15 +38,14 @@
   | やり直せる失敗（503・500 RESOURCE_EXHAUSTED・409 CONFLICT・status 0） | サインアウトせず文を出す（503・RESOURCE_EXHAUSTED は一時的な障害の文、OFFLINE はオフラインの文、CONFLICT・NETWORK_ERROR・TIMEOUT は「登録できませんでした。もう一度お試しください」）。S-01 は同じ画面のまま下の「やり直す」画面に切り替える（チェックはしたまま） | 同じ文。ボタンをもう一度押せる |
   | それ以外（500 INTERNAL_ERROR など） | サインアウト（signOut だけ）して S-02 へ移り「登録は完了しましたが初期設定に失敗しました。もう一度ログインしてください」 | ⑤の「登録できませんでした…」 |
 
-  S-01 は、開いたときにログイン済みなら、自分で GET /api/account を1回だけ読む（Gates は使わない。404 なら下の画面、200 ならホーム〔S-03〕へ `router.replace`）。ログイン済みで users が無いときの「やり直す」画面の形は、決まりの一覧 C-4 と 04-05 のとおり。S-02 はログイン済みでも自動で移動しない（ログイン済みのまま［ログイン］を押したら、先に `logout()` してから認証する）。
+  S-01 は、開いたときにログイン済みなら、自分で GET /api/account を1回だけ読む（Gates は使わない。404 なら下の画面、200 ならホーム〔S-03〕へ `router.replace`）。ログイン済みで users が無いときの「やり直す」画面の形は、決まりの一覧 C-4 と 04-05 のとおり。S-02 はログイン済みでも自動で移動しない（ログイン済みのまま［Googleでログイン］を押したら、先に `logout()` してから認証する）。
 - `requireAuth` は、ID token の検証の失敗を 401 UNAUTHENTICATED と 503 TEMPORARILY_UNAVAILABLE に分ける。分け方の表は `docs/開発ルールの詳細.md` の 1（表にない失敗を 401 にしない。503 では画面はサインアウトしない。無料枠の超過は 500 RESOURCE_EXHAUSTED）。
-- メール形式の検証は、入力欄の `type="email"` と Firebase の判定に任せる（独自の正規表現を作らない）。既読にしたら、S-08 ①の未読件数は画面で1減らす（「すべて既読」なら0）。S-03 ①のバッジは開くたびに読む数（持ち回らない）。
-- Firebase の「メール列挙保護」は既定のまま有効にする。ログイン・再認証の失敗は、登録の有無にかかわらず `auth/invalid-credential` になる（ユーザーの有無を画面で分けない）。
+- ログインは Google だけ（ポップアップ。`lib/google-auth.ts`。決まりの一覧 C-19）。メールとパスワードの登録・ログイン・再設定、パスワードの入力欄は作らない。サーバーは Google 以外の token を 401 にする。既読にしたら、S-08 ①の未読件数は画面で1減らす（「すべて既読」なら0）。S-03 ①のバッジは開くたびに読む数（持ち回らない）。
 - 同意の記録：bootstrap の transaction の中で、users の `consentHistory`（追記だけ。termsVersion・privacyVersion・acceptedAt・kind〔サーバーが決める。users を作る＝'create'、版の更新＝'reconsent'。S-01・S-13 で同じ〕。最大20件、古い順に消す）に1件足す。acceptedAt は transaction の前に `Timestamp.now()` で1回作り、`termsAcceptedAt` にも同じ値（配列の中で serverTimestamp を使わない。04-05）。
 - アカウント削除の後片づけが3回とも失敗したら、ログに code `DELETE_CLEANUP_FAILED` だけを出す（uid は出さない。Firestore に記録しない。04-17）。残りは人が点検して消す（C-12。コードは作らない）。
 - 200件のテストデータ（No.61）は API を呼ばず Admin SDK の `scripts/seed-200.ts`（tsx で実行）で入れる（項目と値は `docs/開発ルールの詳細.md` の 3 と `バグ修正.md` の 05-05）。
 - 「前の画面へ戻る」は、`window.history.length > 1` なら `router.back()`。戻る先が無いときは、設計書の移動先へ `router.replace`。自動で S-02 へ移すとき（未ログイン・401・ログアウト・アカウント削除の後）も `router.replace`。（S-05 の編集の保存の後だけは別の判定。画面設計書 S-05 の⑱）
-- 作らないもの：メール通知、LINE 連携、Google Calendar 連携、料金履歴（F-09・S-10）、画像のアップロード。
+- 作らないもの：メールとパスワードのログイン（C-19）、メール通知、LINE 連携、Google Calendar 連携、料金履歴（F-09・S-10）、画像のアップロード。
 - サービスのアイコンは `components/IconBadge.tsx` の `IconBadge` を使う。画面ごとに頭文字の表示を作らない（favicon は 05-07 が `IconBadge` の中に足す）。
 - ライブラリは機能設計書「0.実装構成」の版を使う（typescript は 5.9 系）。追加するときは Pull Request に書く。
 
@@ -58,7 +57,7 @@
   - みんなが足すファイル：`mocks/index.ts`、`tests/emulator/helpers.ts`、`tests/e2e/helpers.ts`、`lib/dashboard.ts`、`lib/account.ts`、`lib/notifications.ts`（04-14 が作り、04-21 が一覧・既読を足す）、`app/api/account/route.ts`（04-05 が GET で作り、04-17 が DELETE、04-21 が PATCH を足す）。自分の分を足すだけにして、ほかの人の行を変えない。足す場所は、自分の見出し（`// ===== 04-xx：… =====`。無ければ、最後に付ける）の下。import も見出しのすぐ下に書き、ファイルの先頭の import は変えない。すでに import されている名前は、もう一度 import しない。
   - プロンプトに「このタスクで変えてよい」と書いてあるファイル（例：04-20 が検索・並べ替えを足す S-04 のページ。S-04 を作るのは 04-09）は、書いてある範囲だけ変えてよい。
 - 相手の機能が未完成の間、手で試すときは `NEXT_PUBLIC_USE_MOCKS=true` にして `mocks/index.ts` の仮データで動かす。画面は必ず `api()` を通す。ほかの切り替え方を作らない。
-- S-09 の部品は、枠（`settings/page.tsx`）の中の、担当の部品のファイルだけを書く：`AccountInfo`・`AccountActions`（04-05）、`NotificationSection`（04-21）、`PushSection`・`NotificationTiming`〔⑥。props `withoutPush`〕（04-12）、`DeleteAccount`（04-17）、`LegalLinks`（04-19）。`DeleteAccount` は S-09 ではボタン、S-13 ではリンク（`trigger="link"`）で使う（props `trigger`・`onSuccess`・`disabled` の型と既定は 04-17）。失敗の文は、それぞれ自分のボタン・リンクのすぐ下に出す。削除の応答が届かない（通信の失敗か30秒の時間切れ。`timeoutMs: 30000`。送った後の status 0 はどれも）ときは、`runLocalCleanup()`（サーバーは呼ばない）→ お知らせ → サインアウト → S-02 で「削除が完了したか確認できませんでした。もう一度ログインしてください（パスワードを確かめてもログインできなければ、削除は完了しています）」。30秒の時間切れは `setTimeout` と `AbortController` で作る（`AbortSignal.timeout` は使わない）。Firebase のエラーの種類では判定しない（メール列挙保護）。［削除する］を押した時点（再認証の前）で `navigator.onLine` が false なら、再認証も DELETE もせず共通のオフラインの文（サインアウトしない。ダイアログは開いたまま）。`AccountInfo` は GET /api/account を自分で読まず、`useAccountGate().account` を使う（`NotificationSection`・`PushSection` が自分で読む。いつ読むかは各プロンプト）。
+- S-09 の部品は、枠（`settings/page.tsx`）の中の、担当の部品のファイルだけを書く：`AccountInfo`・`AccountActions`（04-05）、`NotificationSection`（04-21）、`PushSection`・`NotificationTiming`〔⑥。props `withoutPush`〕（04-12）、`DeleteAccount`（04-17）、`LegalLinks`（04-19）。`DeleteAccount` は S-09 ではボタン、S-13 ではリンク（`trigger="link"`）で使う（props `trigger`・`onSuccess`・`disabled` の型と既定は 04-17）。失敗の文は、それぞれ自分のボタン・リンクのすぐ下に出す。削除の応答が届かない（通信の失敗か30秒の時間切れ。`timeoutMs: 30000`。送った後の status 0 はどれも）ときは、`runLocalCleanup()`（サーバーは呼ばない）→ お知らせ → サインアウト → S-02 で「削除が完了したか確認できませんでした。もう一度ログインしてください（ログインして利用規約への同意を求められたら、削除は完了しています）」。30秒の時間切れは `setTimeout` と `AbortController` で作る（`AbortSignal.timeout` は使わない）。Firebase のエラーの種類では判定しない。［削除する］を押した時点（再認証の前）で `navigator.onLine` が false なら、再認証も DELETE もせず共通のオフラインの文（サインアウトしない。ダイアログは開いたまま）。`AccountInfo` は GET /api/account を自分で読まず、`useAccountGate().account` を使う（`NotificationSection`・`PushSection` が自分で読む。いつ読むかは各プロンプト）。
 - S-13（同意の確認）は URL のない部品 `components/ConsentScreen.tsx`（枠は 04-01、中身は 04-19。props は `onDone: () => void` だけ。表示と、`onDone` の後の読み直し・ホームへの移動は Gates〔04-05〕）。⑦の下にリンク⑧「アカウントを削除する」をいつも出す（users/{uid} が無いときも、規約の版だけが古いときも）。S-09 の⑩と同じ3段階で、失敗の文はリンクのすぐ下、成功したら S-02。⑥の処理中は⑦⑧の両方を押せない（⑧には `disabled` を渡す）。
 
 ## 共通部品の形（全員がこの名前で使う。04-01 が作る）

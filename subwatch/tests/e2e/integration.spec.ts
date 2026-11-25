@@ -7,7 +7,7 @@ import { addDays } from '../../lib/billing';
 import { todayJST } from '../../lib/clock';
 import { adminDb } from '../../lib/firebase-admin';
 import { seedSubscriptions } from '../emulator/helpers';
-import { callApi, fillSubscriptionForm, loginAsNewUser, waitForHydration } from './helpers';
+import { callApi, fillSubscriptionForm, loginAsNewUser, signInWithGooglePopup, waitForHydration } from './helpers';
 
 // S-05 で保存した後の S-06 の URL（自動の ID は英数字20文字なので、/subscriptions/new は合わない）
 const DETAIL_URL = /\/subscriptions\/[A-Za-z0-9]{20}$/;
@@ -65,13 +65,10 @@ test('統合① 本物の API で、S-01 の登録 → S-03 → S-05 の登録 �
 
   // ---- S-01 ユーザー登録（04-05。本物の POST /api/account/bootstrap）→ S-03 ホーム（04-09。本物の GET /api/dashboard） ----
   await page.goto('/register');
-  await waitForHydration(page, 'form');
-  await page.getByLabel('メールアドレス').fill(email);
-  await page.getByLabel('パスワード', { exact: true }).fill('password1234');
-  await page.getByLabel('パスワード確認').fill('password1234');
+  await waitForHydration(page, 'main button');
   await page.getByRole('checkbox', { name: /利用規約/ }).check();
   await page.getByRole('checkbox', { name: /プライバシーポリシー/ }).check();
-  await page.getByRole('button', { name: 'アカウントを作成' }).click();
+  await signInWithGooglePopup(page, 'Googleで登録', email); // ログインは Google だけ（決まりの一覧 C-19）
 
   await expect(page.getByRole('heading', { level: 1, name: 'ホーム' })).toBeVisible();
   await expect(main(page).getByText('登録されたサブスクがありません')).toBeVisible();

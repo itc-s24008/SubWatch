@@ -278,3 +278,27 @@ describe('No.57 保存された規約・ポリシーの版が現行と違う（l
     await expect(requireInitialized(user.uid)).resolves.toMatchObject({ uid: user.uid });
   });
 });
+
+// ===== C-19：ログインは Google だけ =====
+describe('Google 以外でログインした token（決まりの一覧 C-19）', () => {
+  it('メールとパスワードでログインした token は、bootstrap も GET /api/account も 401 UNAUTHENTICATED（users を作らない）', async () => {
+    const res = await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: `password${Date.now()}@example.com`, password: 'password1234', returnSecureToken: true }),
+    });
+    const { localId, idToken } = (await res.json()) as { localId: string; idToken: string };
+    const bootstrap = await callBootstrap(idToken);
+    expect(bootstrap.status).toBe(401);
+    expect(bootstrap.body?.error?.code).toBe('UNAUTHENTICATED');
+    expect((await userDoc(localId)).exists).toBe(false);
+    const account = await callRoute(GET, { token: idToken, path: '/api/account' });
+    expect(account.status).toBe(401);
+    expect(account.body?.error?.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('Google でログインした token は通る（signUpUser は Google のアカウント）', async () => {
+    const user = await signUpUser();
+    expect((await callBootstrap(user.token)).status).toBe(200);
+  });
+});

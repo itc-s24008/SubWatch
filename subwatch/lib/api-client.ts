@@ -13,7 +13,7 @@
 //     POST /api/account/bootstrap の 409 では呼ばない（S-01・S-13 が自分で扱う。401 は呼ぶ）。知らせた後も api() は投げる
 //   isGateError(error)：同じ3つのときだけ true（401 REAUTH_REQUIRED・503・ほかの 409 は false）
 //   MOCKS_ENABLED：開発中に NEXT_PUBLIC_USE_MOCKS=true のとき true（api() は通信せず mocks/ の値を返す。Gates はログインを求めない）
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithCredential } from 'firebase/auth';
 import { getFirebaseAuth } from '@/lib/firebase-client';
 import { registerLocalCleanup } from '@/lib/logout';
 import type { ApiError, ApiFieldError } from '@/lib/types';
@@ -191,14 +191,15 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
 // ---- 画面テスト（Playwright）用の口。開発中だけ置く（本番のビルドには入れない） ----
 // window.__SUBWATCH_E2E__ = { api, onApiGate, registerLocalCleanup, signIn }
-//   signIn(email, password)：ブラウザの Firebase Auth にログインする（loginAsNewUser が /terms を開いてから呼ぶ）
+//   signIn(email)：ブラウザの Firebase Auth に、Google のアカウントとしてログインする（loginAsNewUser が /terms を開いてから呼ぶ）。
+//     Auth Emulator だけが受け付ける、署名なしの Google の ID token（sub は email と同じ。tests/emulator/helpers.ts の signUpUser と同じ uid になる）
 declare global {
   interface Window {
     __SUBWATCH_E2E__?: {
       api: typeof api;
       onApiGate: typeof onApiGate;
       registerLocalCleanup: typeof registerLocalCleanup;
-      signIn: (email: string, password: string) => Promise<string>;
+      signIn: (email: string) => Promise<string>;
     };
   }
 }
@@ -208,8 +209,9 @@ if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
     api,
     onApiGate,
     registerLocalCleanup,
-    signIn: async (email: string, password: string) => {
-      const credential = await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+    signIn: async (email: string) => {
+      const idToken = JSON.stringify({ sub: email, email, email_verified: true });
+      const credential = await signInWithCredential(getFirebaseAuth(), GoogleAuthProvider.credential(idToken));
       return credential.user.uid;
     },
   };

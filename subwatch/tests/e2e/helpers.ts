@@ -8,7 +8,6 @@ import { seedUser, signUpUser } from '../emulator/helpers';
 export interface TestUser {
   uid: string;
   email: string;
-  password: string;
   token: string;
 }
 
@@ -25,7 +24,7 @@ export async function loginAsNewUser(page: Page, { initialized = true }: { initi
   const user = await createUser({ initialized });
   await page.goto('/terms');
   await page.waitForFunction(() => window.__SUBWATCH_E2E__ !== undefined);
-  await page.evaluate(({ email, password }) => window.__SUBWATCH_E2E__!.signIn(email, password), { email: user.email, password: user.password });
+  await page.evaluate((email) => window.__SUBWATCH_E2E__!.signIn(email), user.email);
   return user;
 }
 
@@ -199,6 +198,28 @@ export async function expectTapTargets(page: Page): Promise<void> {
 }
 
 // ===== 04-05：認証の画面テストの道具 ここに足す =====
+
+// Google ログイン（決まりの一覧 C-19）：Auth Emulator のポップアップ（Auth Emulator IDP Login Widget）でアカウントを選ぶ。
+// そのメールの Google アカウントが Emulator にあれば一覧から選び、無ければ「Add new account」で作る。選ぶとポップアップは自分で閉じる
+export async function chooseGoogleAccount(popup: Page, email: string): Promise<void> {
+  await popup.waitForLoadState();
+  await popup.locator('#add-account-button').waitFor();
+  const existing = popup.locator('#accounts-list li').filter({ hasText: email });
+  if ((await existing.count()) > 0) {
+    await existing.first().click();
+    return;
+  }
+  await popup.locator('#add-account-button button').click();
+  await popup.locator('#email-input').fill(email);
+  await popup.locator('#sign-in').click();
+}
+
+// 画面の［Googleで登録］［Googleでログイン］などを押し、開いたポップアップでアカウントを選ぶ
+export async function signInWithGooglePopup(page: Page, buttonName: string, email: string): Promise<void> {
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: buttonName }).click();
+  await chooseGoogleAccount(await popupPromise, email);
+}
 
 // ===== 04-06：S-05 の画面テストの道具 ここに足す =====
 import type { SubscriptionDto } from '../../lib/types';

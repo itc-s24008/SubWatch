@@ -100,7 +100,7 @@ export const PRIVACY_DOCUMENT: LegalDocument = {
     {
       title: '2. 取得する情報',
       items: [
-        'メールアドレス（ログインと本人確認のため）',
+        'Google アカウントのメールアドレス（Google でログインしたときに Google から受け取ります。ログインと本人確認のため。パスワードは受け取りません）',
         '利用者が登録したサブスク情報（サービス名、プラン名、料金、請求周期、請求日、カテゴリー、トライアル、URL、支払方法の表示名、メモ、通知の設定）',
         'Push 購読情報（端末の宛先情報と、ブラウザの種類（User-Agent））',
         '同意の記録（同意した日時と、利用規約・プライバシーポリシーの版）',
@@ -114,7 +114,7 @@ export const PRIVACY_DOCUMENT: LegalDocument = {
     {
       title: '4. 外部サービスへの提供',
       items: [
-        'Firebase（Google）：認証（Authentication）とデータの保存（Firestore）',
+        'Firebase（Google）：認証（Authentication。Google アカウントでのログイン）とデータの保存（Firestore）',
         'Vercel：アプリの配信とサーバー処理（毎日の通知判定を含む）',
         'ブラウザの Push サービス（Google・Apple など）：Push 通知の配信。通知は暗号化して送るため、Push サービスは通知の内容（サービス名・請求日・料金）を読めません',
         'favicon.im：サービスアイコンの取得',

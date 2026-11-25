@@ -2,6 +2,7 @@
 //   const user = await requireAuth(req);                        // 通常（失効は確かめない）
 //   const user = await requireAuth(req, { checkRevoked: true }); // bootstrap と DELETE /api/account だけ
 // verifyIdToken はテストで差し替えられる（503 の試験用。lib の差し替え口）
+// ログインは Google だけ（決まりの一覧 C-19）：Google 以外でログインした token（以前のメールとパスワードなど）は 401 UNAUTHENTICATED
 import type { DecodedIdToken } from 'firebase-admin/auth';
 import { HttpError } from '@/lib/errors';
 import { adminAuth } from '@/lib/firebase-admin';
@@ -11,6 +12,8 @@ export interface AuthUser {
   email: string; // ID token の email クレーム（無ければ空文字）
   authTime: number; // ID token の auth_time（秒）
 }
+
+export const GOOGLE_SIGN_IN_PROVIDER = 'google.com';
 
 export type VerifyIdToken = (idToken: string, checkRevoked: boolean) => Promise<DecodedIdToken>;
 
@@ -61,6 +64,7 @@ export async function requireAuth(req: Request, options: RequireAuthOptions = {}
   } catch (error) {
     throw classifyVerifyError(error);
   }
+  if (decoded.firebase?.sign_in_provider !== GOOGLE_SIGN_IN_PROVIDER) throw new HttpError(401, 'UNAUTHENTICATED');
   return {
     uid: decoded.uid,
     email: typeof decoded.email === 'string' ? decoded.email : '',

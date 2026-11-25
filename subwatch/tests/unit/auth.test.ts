@@ -45,7 +45,7 @@ describe('No.63 requireAuth の 401 と 503 の分け方（サーバーの部分
   });
 
   it('成功したら uid・email・authTime を返し、checkRevoked を渡す', async () => {
-    const verify = vi.fn(async () => ({ uid: 'u1', email: 'a@example.com', auth_time: 1700000000 }) as unknown as DecodedIdToken);
+    const verify = vi.fn(async () => ({ uid: 'u1', email: 'a@example.com', auth_time: 1700000000, firebase: { sign_in_provider: 'google.com' } }) as unknown as DecodedIdToken);
     await expect(requireAuth(request('Bearer t'), { checkRevoked: true, verifyIdToken: verify })).resolves.toEqual({
       uid: 'u1',
       email: 'a@example.com',
@@ -55,7 +55,13 @@ describe('No.63 requireAuth の 401 と 503 の分け方（サーバーの部分
   });
 
   it('email クレームが無ければ空文字', async () => {
-    const verify: VerifyIdToken = async () => ({ uid: 'u1', auth_time: 1 }) as unknown as DecodedIdToken;
+    const verify: VerifyIdToken = async () => ({ uid: 'u1', auth_time: 1, firebase: { sign_in_provider: 'google.com' } }) as unknown as DecodedIdToken;
     await expect(requireAuth(request('Bearer t'), { verifyIdToken: verify })).resolves.toMatchObject({ email: '' });
+  });
+
+  it.each(['password', 'anonymous', 'custom', undefined])('Google 以外でログインした token（sign_in_provider が %s）は 401 UNAUTHENTICATED（C-19）', async (provider) => {
+    const verify: VerifyIdToken = async () =>
+      ({ uid: 'u1', email: 'a@example.com', auth_time: 1, firebase: provider === undefined ? undefined : { sign_in_provider: provider } }) as unknown as DecodedIdToken;
+    await expect(requireAuth(request('Bearer t'), { verifyIdToken: verify })).rejects.toMatchObject({ status: 401, code: 'UNAUTHENTICATED' });
   });
 });

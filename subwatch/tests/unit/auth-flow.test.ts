@@ -1,41 +1,12 @@
-// lib/auth-flow.ts（S-01・S-02 の文と判定。04-05）の単体テスト
+// lib/auth-flow.ts（S-01・S-02 の文と判定。04-05）と lib/google-auth.ts（Google ログインの失敗の分け方。C-19）の単体テスト
 import { describe, expect, it } from 'vitest';
 import { ApiClientError } from '@/lib/api-client';
-import {
-  AUTH_MESSAGES,
-  classifyBootstrapFailure,
-  hasErrors,
-  loginFailureMessage,
-  resetResultOf,
-  signUpFailure,
-  validateRegisterInput,
-} from '@/lib/auth-flow';
+import { classifyBootstrapFailure } from '@/lib/auth-flow';
+import { GOOGLE_MESSAGES, googleFailureOf, googleSignInMessage } from '@/lib/google-auth';
 
 function apiError(status: number, code: string): ApiClientError {
   return new ApiClientError(status, code, 'x');
 }
-
-describe('validateRegisterInput（S-01 ①〜③）', () => {
-  it('正しい入力なら誤りなし', () => {
-    const errors = validateRegisterInput({ email: 'a@example.com', emailValid: true, password: 'password', passwordConfirm: 'password' });
-    expect(hasErrors(errors)).toBe(false);
-  });
-
-  it('No.16 パスワード7文字は「パスワードは8文字以上で入力してください」（8文字は通る。C-16）', () => {
-    expect(validateRegisterInput({ email: 'a@example.com', emailValid: true, password: '1234567', passwordConfirm: '1234567' }).password).toBe(
-      AUTH_MESSAGES.passwordTooShort,
-    );
-    expect(validateRegisterInput({ email: 'a@example.com', emailValid: true, password: '12345678', passwordConfirm: '12345678' }).password).toBeUndefined();
-  });
-
-  it('空・入力欄が形式違いと判定したメールは「メールアドレスの形式が正しくありません」。不一致は「パスワードが一致しません」', () => {
-    const errors = validateRegisterInput({ email: '', emailValid: true, password: 'password', passwordConfirm: 'passwordX' });
-    expect(errors).toEqual({ email: AUTH_MESSAGES.emailInvalid, passwordConfirm: AUTH_MESSAGES.passwordMismatch });
-    expect(validateRegisterInput({ email: 'abc', emailValid: false, password: 'password', passwordConfirm: 'password' }).email).toBe(
-      AUTH_MESSAGES.emailInvalid,
-    );
-  });
-});
 
 describe('classifyBootstrapFailure（決まりの一覧 C-4）', () => {
   it('401 UNAUTHENTICATED は onApiGate に任せる', () => {
@@ -72,28 +43,28 @@ describe('classifyBootstrapFailure（決まりの一覧 C-4）', () => {
   });
 });
 
-describe('Firebase のエラーの文', () => {
-  it('ログインの失敗：認証の誤りは1つの文（どちらが違うかは示さない）、通信の失敗は別の文', () => {
-    for (const code of ['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email']) {
-      expect(loginFailureMessage({ code })).toBe('メールアドレスまたはパスワードが正しくありません');
+describe('Google ログインの失敗（C-19）', () => {
+  it('ポップアップを閉じた・選ばなかったときは文を出さない', () => {
+    for (const code of ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled']) {
+      expect(googleFailureOf({ code })).toBe('cancelled');
+      expect(googleSignInMessage({ code }, 'fallback')).toBeNull();
     }
-    expect(loginFailureMessage({ code: 'auth/network-request-failed' })).toBe('ログインできませんでした。もう一度お試しください');
   });
 
-  it('ユーザーの作成の失敗：登録済み・形式違い・通信の失敗', () => {
-    expect(signUpFailure({ code: 'auth/email-already-in-use' })).toEqual({
-      field: 'email',
-      message: 'このメールアドレスはすでに登録されています',
-      emailInUse: true,
-    });
-    expect(signUpFailure({ code: 'auth/invalid-email' })).toEqual({ field: 'email', message: 'メールアドレスの形式が正しくありません' });
-    expect(signUpFailure({ code: 'auth/network-request-failed' })).toEqual({ message: '登録できませんでした。もう一度お試しください' });
+  it('ポップアップが止められた・以前のメールとパスワードのアカウントが残っている・無効のアカウントは、それぞれの文', () => {
+    expect(googleSignInMessage({ code: 'auth/popup-blocked' }, 'fallback')).toBe(GOOGLE_MESSAGES.popupBlocked);
+    expect(googleSignInMessage({ code: 'auth/account-exists-with-different-credential' }, 'fallback')).toBe(GOOGLE_MESSAGES.otherMethod);
+    expect(googleSignInMessage({ code: 'auth/user-disabled' }, 'fallback')).toBe(GOOGLE_MESSAGES.disabled);
   });
 
-  it('No.69 再設定：Auth に無いメール（auth/user-not-found）でも「送った」と同じ扱い', () => {
-    expect(resetResultOf(null)).toBe('sent');
-    expect(resetResultOf({ code: 'auth/user-not-found' })).toBe('sent');
-    expect(resetResultOf({ code: 'auth/invalid-email' })).toBe('invalidEmail');
-    expect(resetResultOf({ code: 'auth/network-request-failed' })).toBe('failed');
+  it('通信の失敗など、そのほかは画面ごとの文（S-01「登録できませんでした…」・S-02「ログインできませんでした…」）', () => {
+    for (const error of [{ code: 'auth/network-request-failed' }, { code: 'auth/internal-error' }, new Error('x'), null]) {
+      expect(googleFailureOf(error)).toBe('failed');
+      expect(googleSignInMessage(error, 'ログインできませんでした。もう一度お試しください')).toBe('ログインできませんでした。もう一度お試しください');
+    }
+  });
+
+  it('本人確認で違うアカウントを選んだ（auth/user-mismatch）', () => {
+    expect(googleFailureOf({ code: 'auth/user-mismatch' })).toBe('userMismatch');
   });
 });

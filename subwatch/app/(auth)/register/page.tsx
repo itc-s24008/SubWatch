@@ -1,30 +1,25 @@
 'use client';
-// S-01 ユーザー登録画面（04-05。画面設計書 S-01、詳細_F-01、決まりの一覧 C-4・C-14・C-16）
+// S-01 ユーザー登録画面（04-05。画面設計書 S-01、詳細_F-01、決まりの一覧 C-4・C-14。登録は Google だけ：C-19）
 // ・開いたときにログイン済みなら、自分で GET /api/account を1回だけ読む（開いた後の最初の認証の確定の1回だけ。登録の送信中は読まない。
 //   Gates は使わない）：200 → ホーム（S-03）へ router.replace／404 → 「やり直す」表示（チェックは外した状態）／
 //   読めない → 「読み込めませんでした。ページを再読み込みしてください」だけ（共通の文にしない。［再試行］は出さない）
-// ・［アカウントを作成］：①〜③を確かめる → Firebase でユーザーを作る → POST /api/account/bootstrap → 成功ならホームへ router.replace
+// ・［Googleで登録］（同意のチェック2つが済むまで押せない）：Google のポップアップでログイン → POST /api/account/bootstrap → 成功ならホームへ router.replace
+//   すでに登録済みの Google アカウントでも同じ（bootstrap は、users があって版が同じなら何もしない）。ポップアップを閉じたときは文を出さない
 // ・bootstrap の失敗は lib/auth-flow.ts の classifyBootstrapFailure（決まりの一覧 C-4）：
 //   401 は onApiGate（AuthProvider）／版違いの 409 と、それ以外（500 INTERNAL_ERROR など）は signOut だけして S-02 へ（お知らせは signOut の前に置く）／
 //   やり直せる失敗は、サインアウトせず同じ画面のまま「やり直す」表示に切り替える（チェックはしたまま）
 // ・「やり直す」表示：説明・同意のチェック2つ・失敗の文・「初期設定をやり直す」（bootstrap だけを呼ぶ）・「ログアウト」（logout() → S-02）だけ
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/components/AuthProvider';
-import { Brand, Button, Card, Checkbox, LoadError, Loading, PageTitle, TextField } from '@/components/ui';
+import { Brand, Button, Card, Checkbox, LoadError, Loading, PageTitle } from '@/components/ui';
 import { ApiClientError, api, isGateError } from '@/lib/api-client';
-import {
-  AUTH_MESSAGES,
-  classifyBootstrapFailure,
-  hasErrors,
-  signUpFailure,
-  validateRegisterInput,
-  type RegisterErrors,
-} from '@/lib/auth-flow';
+import { AUTH_MESSAGES, classifyBootstrapFailure } from '@/lib/auth-flow';
 import { getFirebaseAuth } from '@/lib/firebase-client';
 import { setFlash } from '@/lib/flash';
+import { GOOGLE_MESSAGES, googleSignInMessage, signInWithGoogle } from '@/lib/google-auth';
 import { logout } from '@/lib/logout';
 import { currentTermsVersions } from '@/lib/terms';
 import type { AccountDto, BootstrapBody, BootstrapResult } from '@/lib/types';
@@ -37,13 +32,8 @@ export default function RegisterPage() {
   const { user, loading } = useAuth();
   const checkedRef = useRef(false); // 開いた後の最初の認証の確定で、1回だけ確かめる
   const [phase, setPhase] = useState<Phase>('checking');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [termsChecked, setTermsChecked] = useState(false);
   const [privacyChecked, setPrivacyChecked] = useState(false);
-  const [errors, setErrors] = useState<RegisterErrors>({});
-  const [emailInUse, setEmailInUse] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
 
@@ -99,24 +89,14 @@ export default function RegisterPage() {
     }
   }
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleCreate() {
     if (busy || !termsChecked || !privacyChecked) return;
-    const emailInput = event.currentTarget.elements.namedItem('email') as HTMLInputElement | null;
-    const found = validateRegisterInput({ email, emailValid: emailInput?.validity.valid ?? true, password, passwordConfirm });
-    setErrors(found);
-    setEmailInUse(false);
     setSubmitError(null);
-    if (hasErrors(found)) return;
-
     setBusy('create');
     try {
-      await createUserWithEmailAndPassword(getFirebaseAuth(), email, password);
+      await signInWithGoogle(); // ポップアップは、ほかの await より先に開く
     } catch (error) {
-      const failure = signUpFailure(error);
-      if (failure.field) setErrors({ [failure.field]: failure.message });
-      else setSubmitError(failure.message);
-      setEmailInUse(failure.emailInUse === true);
+      setSubmitError(googleSignInMessage(error, AUTH_MESSAGES.registerFailed));
       setBusy(null);
       return;
     }
@@ -197,51 +177,13 @@ export default function RegisterPage() {
         </p>
         <h2 className="mt-6 text-2xl font-bold">アカウントを作成</h2>
         <p className="mt-1 text-sm text-gray-500">請求予定をまとめて管理しましょう</p>
-        <form noValidate onSubmit={(event) => void handleCreate(event)} className="mt-6 flex flex-col gap-3">
-          <div>
-            <TextField
-              id="register-email"
-              name="email"
-              label="メールアドレス"
-              type="email"
-              autoComplete="email"
-              value={email}
-              error={errors.email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-            {emailInUse && (
-              <Link href="/login" className="inline-flex min-h-11 items-center text-sm font-bold text-brand underline">
-                {AUTH_MESSAGES.continueWithLogin}
-              </Link>
-            )}
-          </div>
-          <TextField
-            id="register-password"
-            label="パスワード"
-            type="password"
-            autoComplete="new-password"
-            placeholder="8文字以上のパスワード"
-            value={password}
-            hint={errors.password ? undefined : AUTH_MESSAGES.passwordTooShort}
-            error={errors.password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          <TextField
-            id="register-password-confirm"
-            label="パスワード確認"
-            type="password"
-            autoComplete="new-password"
-            placeholder="もう一度入力"
-            value={passwordConfirm}
-            error={errors.passwordConfirm}
-            onChange={(event) => setPasswordConfirm(event.target.value)}
-          />
+        <div className="mt-6 flex flex-col gap-3">
           {consentChecks}
           {errorBox}
-          <Button type="submit" fullWidth disabled={busy !== null || !termsChecked || !privacyChecked} className="mt-2">
-            {busy === 'create' ? '作成中…' : 'アカウントを作成'}
+          <Button fullWidth onClick={() => void handleCreate()} disabled={busy !== null || !termsChecked || !privacyChecked} className="mt-2">
+            {busy === 'create' ? '作成中…' : GOOGLE_MESSAGES.registerButton}
           </Button>
-        </form>
+        </div>
         <div className="mt-6 flex flex-col items-center text-sm text-gray-500">
           <p>すでにアカウントをお持ちですか？</p>
           <Link href="/login" className="inline-flex min-h-11 min-w-11 items-center font-bold text-brand">

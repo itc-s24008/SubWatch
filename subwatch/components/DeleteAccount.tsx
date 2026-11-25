@@ -9,17 +9,19 @@
 //                                 今は S-09・S-13 とも渡さない
 //   disabled?: boolean            true のとき入口のボタン・リンクを押せない（S-13 で⑥の処理中・ログアウト中に使う）。既定 false
 //
-// 流れ：①確認（前後の空白を除いて DELETE と一致したら［次へ］）→ ②パスワードの再入力（［削除する］）→ ③DELETE /api/account
+// 流れ：①確認（前後の空白を除いて DELETE と一致したら［次へ］）→ ②本人確認（［削除する］で Google のポップアップ。決まりの一覧 C-19）→ ③DELETE /api/account
 //   ・［削除する］を押した時点で navigator.onLine が false：再認証も DELETE もせず、共通のオフラインの文（ダイアログは開いたまま）
-//   ・パスワードが空・違う：「パスワードが違います」（入力は残す。DELETE は呼ばない）。再認証のそのほかの失敗は④と同じ
+//   ・ポップアップを閉じた：文を出さず、ダイアログを開いたまま。違うアカウントを選んだ・ポップアップが止められた：ダイアログの中に文（DELETE は呼ばない）。
+//     再認証のそのほかの失敗は④と同じ
 //   ・成功：runLocalCleanup() → setFlash（完了の文）→ signOut → S-02 へ router.replace（logout() は使わない。削除後は 401 になるため）
 //   ・応答が届かない（送った後の status 0。通信の失敗・30秒の時間切れ・OFFLINE）：runLocalCleanup() → setFlash（確認できなかった文）→ signOut → S-02
-//   ・401 REAUTH_REQUIRED：ダイアログの中に「もう一度パスワードを入力してください」、入力欄を空にする
+//   ・401 REAUTH_REQUIRED：ダイアログの中に「もう一度 Google で本人確認してください」
 //   ・401 UNAUTHENTICATED（ゲート）：何も出さない（AuthProvider が S-02 へ移す）
 //   ・④そのほかの失敗（500・503 など）：ダイアログを閉じ、入口のすぐ下に「削除できませんでした。もう一度お試しください」（サインアウトしない）
 //   ［削除する］を押した後は「削除中…」。終わるまで［キャンセル］も押せず、Esc でも閉じない
 // 入力欄の ref は TextField の残りの props として <input> に渡る（React 19 では ref も props。TextField の props の型には無いので spread で渡す）
-import { EmailAuthProvider, reauthenticateWithCredential, signOut } from 'firebase/auth';
+// ポップアップは［削除する］を押した処理の中で、ほかの await より先に開く（後で開くとブラウザに止められるため）
+import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Dialog } from '@/components/Dialog';
@@ -38,6 +40,7 @@ import {
 import { api, isGateError } from '@/lib/api-client';
 import { getFirebaseAuth } from '@/lib/firebase-client';
 import { setFlash } from '@/lib/flash';
+import { reauthenticateWithGoogle } from '@/lib/google-auth';
 import { runLocalCleanup } from '@/lib/logout';
 import type { DeleteAccountBody, DeleteAccountResult } from '@/lib/types';
 
@@ -47,7 +50,7 @@ export interface DeleteAccountProps {
   disabled?: boolean;
 }
 
-type Step = 'closed' | 'confirm' | 'password';
+type Step = 'closed' | 'confirm' | 'reauth';
 
 const ROW =
   'flex min-h-11 w-full items-center rounded-2xl border border-red-100 bg-red-50 px-4 py-4 text-left text-base font-bold text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:text-gray-400';
@@ -57,13 +60,12 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
   const baseId = useId();
   const [step, setStep] = useState<Step>('closed');
   const [confirmText, setConfirmText] = useState('');
-  const [password, setPassword] = useState('');
-  const [dialogError, setDialogError] = useState<string | null>(null); // ②の入力欄の下（パスワード違い・再認証・オフライン）
+  const [dialogError, setDialogError] = useState<string | null>(null); // ②の説明の下（違うアカウント・再認証・オフライン）
   const [entryError, setEntryError] = useState<string | null>(null); // 入口のすぐ下（削除の失敗）
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const confirmInputRef = useRef<HTMLInputElement>(null);
-  const passwordInputRef = useRef<HTMLInputElement>(null);
+  const submitButtonRef = useRef<HTMLButtonElement>(null);
 
   const canNext = isDeleteConfirmationInput(confirmText);
 
@@ -76,7 +78,6 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
     if (disabled || busyRef.current) return;
     setEntryError(null);
     setConfirmText('');
-    setPassword('');
     setDialogError(null);
     setStep('confirm');
   }
@@ -89,7 +90,7 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
   function goNext() {
     if (!canNext) return;
     setDialogError(null);
-    setStep('password');
+    setStep('reauth');
   }
 
   // ④そのほかの失敗：ダイアログを閉じ、入口のすぐ下に文を出す（もう一度押せば①からやり直す）
@@ -120,31 +121,26 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
       setDialogError(DELETE_MESSAGES.offline);
       return;
     }
-    // 空のときは Firebase を呼ばずに「パスワードが違います」
-    if (password === '') {
-      setDialogError(DELETE_MESSAGES.wrongPassword);
-      passwordInputRef.current?.focus();
+    const current = getFirebaseAuth().currentUser;
+    if (!current) {
+      showFailure();
       return;
     }
     setBusyState(true);
 
-    // ブラウザで再認証し、ID token を取り直す（api() が currentUser.getIdToken() で新しい token を使う）
-    const current = getFirebaseAuth().currentUser;
-    if (!current || !current.email) {
-      showFailure();
-      return;
-    }
+    // Google で再認証し、ID token を取り直す（api() が currentUser.getIdToken() で新しい token を使う）
     try {
-      await reauthenticateWithCredential(current, EmailAuthProvider.credential(current.email, password));
+      await reauthenticateWithGoogle(current);
     } catch (error) {
-      if (reauthFailureOf(error) === 'wrongPassword') {
-        setBusyState(false);
-        setDialogError(DELETE_MESSAGES.wrongPassword); // 入力は残す
-        passwordInputRef.current?.focus();
+      const failure = reauthFailureOf(error);
+      if (failure === 'failed') {
+        showFailure();
         return;
       }
-      showFailure();
-      return;
+      setBusyState(false);
+      if (failure === 'userMismatch') setDialogError(DELETE_MESSAGES.userMismatch);
+      if (failure === 'popupBlocked') setDialogError(DELETE_MESSAGES.popupBlocked);
+      return; // cancelled：文を出さず、ダイアログを開いたまま
     }
 
     let outcome: DeleteOutcome;
@@ -166,9 +162,8 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
         return;
       case 'reauthRequired':
         setBusyState(false);
-        setPassword(''); // 入力欄を空にする
         setDialogError(DELETE_MESSAGES.reauthRequired);
-        passwordInputRef.current?.focus();
+        submitButtonRef.current?.focus();
         return;
       case 'gate':
         return;
@@ -235,34 +230,27 @@ export function DeleteAccount({ trigger = 'button', onSuccess, disabled = false 
       </Dialog>
 
       <Dialog
-        open={step === 'password'}
+        open={step === 'reauth'}
         title={DELETE_MESSAGES.reauthTitle}
         onClose={closeDialog}
         closeOnEsc={!busy}
-        initialFocusRef={passwordInputRef}
         actions={
           <>
             <Button variant="secondary" className="flex-1" disabled={busy} onClick={closeDialog}>
               {DELETE_MESSAGES.cancel}
             </Button>
-            <Button variant="danger" className="flex-1" disabled={busy} onClick={() => void submit()}>
+            <Button variant="danger" className="flex-1" disabled={busy} onClick={() => void submit()} {...{ ref: submitButtonRef }}>
               {busy ? DELETE_MESSAGES.deleting : DELETE_MESSAGES.submit}
             </Button>
           </>
         }
       >
-        <TextField
-          id={`${baseId}-password`}
-          type="password"
-          label={DELETE_MESSAGES.reauthPrompt}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          onKeyDown={(event) => onEnter(event, () => void submit())}
-          autoComplete="current-password"
-          disabled={busy}
-          error={dialogError}
-          {...{ ref: passwordInputRef }}
-        />
+        <p className="text-gray-500">{DELETE_MESSAGES.reauthPrompt}</p>
+        {dialogError && (
+          <p role="alert" className="mt-2 text-sm text-red-600">
+            {dialogError}
+          </p>
+        )}
       </Dialog>
     </div>
   );

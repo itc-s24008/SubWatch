@@ -60,7 +60,7 @@ export function Button({ variant = 'primary', fullWidth = false, href, className
 }
 
 // ---- LinkButton ----
-// 見た目がリンクの <button>（押しても画面を移らないもの。S-02 の③「パスワードを忘れた場合」、S-13 の⑧）。役割は button
+// 見た目がリンクの <button>（押しても画面を移らないもの。S-13 の⑧）。役割は button
 // props：<button> と同じ（type の既定は "button"）、danger?（赤い字）
 export interface LinkButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   danger?: boolean;

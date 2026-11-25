@@ -4,7 +4,7 @@ import type { ApiFieldError } from '@/lib/types';
 // API が返す message（API共通仕様 B34〜B51。画面の文言と同じ）
 export const ERROR_MESSAGES: Record<string, string> = {
   UNAUTHENTICATED: 'ログインしてください',
-  REAUTH_REQUIRED: 'もう一度パスワードを入力してください',
+  REAUTH_REQUIRED: 'もう一度 Google で本人確認してください', // 決まりの一覧 C-19（ログインは Google だけ）
   INVALID_CRON_SECRET: '認証に失敗しました',
   NOT_FOUND: '見つかりません',
   ACCOUNT_NOT_INITIALIZED: 'アカウントの初期設定が完了していません',
