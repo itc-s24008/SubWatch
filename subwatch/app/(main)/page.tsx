@@ -156,8 +156,9 @@ export default function HomePage() {
         <BellLink unreadCount={state.status === 'ready' ? state.data.unreadCount : 0} />
       </div>
       <PageTitle>ホーム</PageTitle>
-      <main className="flex flex-col gap-3 px-4 pb-4">
-        <p className="-mt-2 text-sm text-gray-500">請求予定をまとめて確認</p>
+      {/* 題の下の説明は、題と同じ白い帯の中に置く（帯の外に出ると、背景の色の境目に文字がかかって、ずれて見える） */}
+      <p className="-mt-3 bg-white px-4 pb-4 text-sm text-gray-500">請求予定をまとめて確認</p>
+      <main className="flex flex-col gap-3 px-4 pb-4 pt-4">
         {state.status === 'loading' && <Loading />}
         {state.status === 'error' && <LoadError error={state.error} message={LOAD_FAILED} onRetry={() => void load()} />}
         {state.status === 'ready' && <Dashboard data={state.data} />}
