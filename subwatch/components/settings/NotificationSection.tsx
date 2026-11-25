@@ -9,6 +9,7 @@
 //     それ以外の失敗（オフライン・503 を含む）は、共通の文ではなく「変更できませんでした。もう一度お試しください」を③のすぐ下に出す
 import { useEffect, useRef, useState } from 'react';
 import { useAccountGate } from '@/components/AuthProvider';
+import { settlingClass, useSettled } from '@/components/settings/useSettled';
 import { Card, Switch } from '@/components/ui';
 import { api, isGateError } from '@/lib/api-client';
 import type { AccountDto, UpdateAccountBody, UpdateAccountResult } from '@/lib/types';
@@ -60,8 +61,12 @@ export function NotificationSection() {
     }
   }
 
+  // 開いたときの読み込み（GET /api/account）の間は押せないが、色は薄くせず、読み込みの結果で位置が変わっても滑らせない
+  // （ログインのときに読んだ値で出しておき、濃さや位置が一瞬変わって見えないようにする）
+  const settled = useSettled(loaded);
+
   return (
-    <Card>
+    <Card className={settlingClass(loaded, settled)}>
       <Switch
         id="notification-switch"
         checked={enabled}
